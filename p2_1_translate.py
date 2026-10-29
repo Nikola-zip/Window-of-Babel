@@ -142,8 +142,9 @@ def ask(prompt, model=None, timeout=REQUEST_TIMEOUT):
         "think": False,
         "stream": False,
         "options": OPTIONS,
-        # 用完留喺 VRAM 30 分鐘：每次重新搬模型入 VRAM 要幾秒，字幕等唔切
-        "keep_alive": "30m",
+        # 用完留喺 VRAM 10 分鐘：譯幕（字幕句句要即譯）用 30 分鐘；巴別塔之窗一頁頁讀，同讀字模型一樣 10 分鐘就夠，
+        # 閒咗唔好霸住 6.8 GB VRAM。再用要等幾秒搬返入去
+        "keep_alive": "10m",
     }
     request = urllib.request.Request(
         OLLAMA,

@@ -9,6 +9,7 @@
 # 點用：p6_3_lens.py 會 import 呢度嘅 TextEraser；直接行係自我測試：
 #   .venv\Scripts\python -W ignore p6_5_inpaint.py [存對比圖嘅資料夾]
 
+import gc
 import sys
 import threading
 import time
@@ -23,6 +24,10 @@ from PyQt6.QtGui import QImage
 
 FINDER_MODEL = Path("models/ctd/comictextdetector.pt.onnx")
 LAMA_MODEL = Path("models/lama/lama_fp32_dml.onnx")
+# 閒咗幾多秒釋放搵字補圖模型（約 1.7 GB VRAM）：同 Ollama 讀字模型 keep_alive 10 分鐘一致；
+# 再用要等大約 6 秒載返。每隔幾多秒睇一次閒咗未
+IDLE_UNLOAD = 600
+IDLE_CHECK = 30
 FIND_SIZE = 1024        # 搵字模型固定食 1024 × 1024
 LAMA_SIZE = 512         # 補圖模型固定食 512 × 512
 TEXT_PROB = 0.3         # 搵字模型話「係字」嘅機會高過咁多就當係筆劃（官方預設）
@@ -143,17 +148,24 @@ def intersection(a, b):
 
 
 class TextEraser:
-    """搵字＋補圖。兩個模型第一次用先載入（要幾秒，又佔大約 1.7GB VRAM），之後一直留住。"""
+    """搵字＋補圖。兩個模型第一次用先載入（要幾秒，又佔大約 1.7GB VRAM）；閒咗 IDLE_UNLOAD 秒就釋放，
+    下次用先載返（同 Ollama 讀字模型 keep_alive 10 分鐘一致）。以前一載就留到閂程式，淨用其他程式都霸住 VRAM"""
 
     def __init__(self):
         self.finder = None
         self.lama = None
-        self.lock = threading.Lock()    # 背景載入同讀字可能同時想用
+        self.lock = threading.Lock()    # 背景載入、讀字、閒置釋放三條線可能同時想郁
+        self.last_used = 0.0
+        self.watching = False
 
     def available(self):
         return FINDER_MODEL.exists() and LAMA_MODEL.exists()
 
     def load(self):
+        self._sessions()
+
+    def _sessions(self):
+        """攞住兩個模型（未載就載）：回傳嘅係呢一刻嘅參照，閒置線就算啱啱釋放，手上呢份都會用完先清。"""
         with self.lock:
             if self.finder is None:
                 start = time.perf_counter()
@@ -164,17 +176,32 @@ class TextEraser:
                 self.lama.run(None, {"image": np.zeros((1, 3, LAMA_SIZE, LAMA_SIZE), np.float32),
                                      "mask": np.zeros((1, 1, LAMA_SIZE, LAMA_SIZE), np.float32)})
                 print(f"載入搵字同補圖模型：{time.perf_counter() - start:.1f} 秒（{self.finder.get_providers()[0]}）")
+            self.last_used = time.monotonic()
+            if not self.watching:
+                self.watching = True
+                threading.Thread(target=self._watch_idle, daemon=True).start()
+            return self.finder, self.lama
+
+    def _watch_idle(self):
+        """背景線：每 IDLE_CHECK 秒睇一次，閒咗超過 IDLE_UNLOAD 秒就放手，VRAM 即刻還返。"""
+        while True:
+            time.sleep(IDLE_CHECK)
+            with self.lock:
+                if self.finder is not None and time.monotonic() - self.last_used > IDLE_UNLOAD:
+                    self.finder = self.lama = None
+                    gc.collect()        # 即刻清：唔等 Python 自己得閒先放 GPU 記憶體
+                    print(f"搵字同補圖模型閒咗 {IDLE_UNLOAD // 60} 分鐘，釋放咗（下次讀字再載）")
 
     def find(self, rgb):
         """回傳（每粒像素係字嘅機會 0 至 1, 字框 [[x1, y1, x2, y2], ...] 像素）。"""
-        self.load()
+        finder, _ = self._sessions()
         h, w = rgb.shape[:2]
         scale = FIND_SIZE / max(w, h)
         nw, nh = max(1, round(w * scale)), max(1, round(h * scale))
         # 同官方一樣：保持比例縮放，擺喺左上角，右邊同下面補黑色
         canvas = np.zeros((FIND_SIZE, FIND_SIZE, 3), np.uint8)
         canvas[:nh, :nw] = resize(rgb, nw, nh)
-        blocks, seg, _lines = self.finder.run(None, {"images": canvas.transpose(2, 0, 1)[None].astype(np.float32) / 255})
+        blocks, seg, _lines = finder.run(None, {"images": canvas.transpose(2, 0, 1)[None].astype(np.float32) / 255})
         prob = resize((seg[0, 0, :nh, :nw] * 255).astype(np.uint8), w, h).astype(np.float32) / 255
         rows = blocks[0]
         scores = rows[:, 4] * rows[:, 5:].max(axis=1)       # 有字嘅信心 × 類別信心
@@ -187,7 +214,7 @@ class TextEraser:
 
     def erase(self, rgb, hole):
         """將 hole（True = 要抹）嘅位補返背景；逐嚿截出嚟交補圖模型，唔使成張圖縮細。"""
-        self.load()
+        _, lama = self._sessions()
         result = rgb.copy()
         h, w = hole.shape
         groups, count = ndimage.label(ndimage.binary_dilation(hole, iterations=JOIN_GAP))
@@ -206,7 +233,7 @@ class TextEraser:
             ch, cw = mask.shape
             image = resize(crop, LAMA_SIZE, LAMA_SIZE).transpose(2, 0, 1)[None].astype(np.float32) / 255
             small = resize(mask.astype(np.uint8) * 255, LAMA_SIZE, LAMA_SIZE, smooth=False) > 127
-            out = self.lama.run(None, {"image": image, "mask": small[None, None].astype(np.float32)})[0][0]
+            out = lama.run(None, {"image": image, "mask": small[None, None].astype(np.float32)})[0][0]
             filled = resize(np.clip(out.transpose(1, 2, 0), 0, 255).astype(np.uint8), cw, ch)
             crop[mask] = filled[mask]       # 淨係換抹咗嘅位，其他像素保持原圖
         return result

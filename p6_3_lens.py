@@ -1498,11 +1498,17 @@ class Lens(Glass):
         if self.auto:
             self.last_view, self.still = None, 0
             self.watcher.start(WATCH_EVERY)
-        # 第一次顯示先喺背景載入搵字同補圖模型（要幾秒、佔 VRAM）：唔用譯鏡就唔使載
+        # 顯示個窗就喺背景載入搵字同補圖模型（要幾秒、佔 VRAM）：唔用就唔使載。閒咗會自己釋放（p6_5_inpaint
+        # IDLE_UNLOAD），所以唔止第一次：每次顯示、發覺未載都預先載，費事撳讀字先等
         eraser = self.worker.eraser
         if eraser is not None and eraser.finder is None and not self.preloading:
             self.preloading = True
-            threading.Thread(target=eraser.load, daemon=True).start()
+
+            def preload():
+                eraser.load()
+                self.preloading = False
+
+            threading.Thread(target=preload, daemon=True).start()
 
     # ---------- 讀字同翻譯 ----------
     def read(self):

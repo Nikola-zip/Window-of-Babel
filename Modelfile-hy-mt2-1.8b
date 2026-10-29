@@ -1,0 +1,5 @@
+FROM hf.co/tencent/Hy-MT2-1.8B-GGUF:Q6_K
+# 騰訊官方 chat_template.jinja 嘅寫法：Ollama 自動轉出嚟嗰個漏咗放句子入去（次次答「onse」）
+TEMPLATE """<｜hy_begin▁of▁sentence｜>{{ if .System }}{{ .System }}<｜hy_place▁holder▁no▁3｜>{{ end }}<｜hy_User｜>{{ .Prompt }}<｜hy_Assistant｜>{{ .Response }}"""
+PARAMETER stop "<｜hy_place▁holder▁no▁2｜>"
+PARAMETER stop "<｜hy_place▁holder▁no▁8｜>"

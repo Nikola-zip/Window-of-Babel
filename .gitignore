@@ -1,0 +1,24 @@
+# 巴別塔之窗：唔好上傳嘅嘢
+
+# Python 環境同快取：每部機自己裝（要嘅套件寫喺 README）
+.venv/
+__pycache__/
+*.pyc
+
+# 模型檔：太大（約 300 MB），放 GitHub Releases，第一次開機設定會自動下載
+models/
+
+# 用家自己嘅資料：設定、紀錄、人名名單、截圖
+settings.json
+settings.json.*
+logs/
+glossaries/names/
+譯鏡截圖/
+glossaries/glossary.csv
+
+# 程式自己整嘅檔
+*.ico
+*.part
+
+# 字型：授權（SIL OFL 1.1）准分發，但要連授權檔一齊放；授權檔未齊之前先唔上傳
+fonts/

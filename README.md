@@ -1,10 +1,10 @@
 # Window of Babel
 
+**English** | [繁體中文](README.zh-Hant.md)
+
 A movable window that translates whatever sits behind it. Place it over a manga page, a game, an app or a website, and the text inside is read, translated and redrawn in the language you choose.
 
 Everything runs on your own computer. There is no account, no API key and no cloud service.
-
-[繁體中文說明](#繁體中文)
 
 ## Features
 
@@ -40,7 +40,7 @@ py -3.10 -m venv .venv
 
 3. On the first run, a setup window checks Ollama, reads your VRAM and recommends a tier. Press the button and it downloads what it needs.
 
-To add a desktop shortcut later, open Settings, go to General and choose the shortcut option.
+To add a desktop shortcut later, open Settings, go to General and press Create desktop shortcut.
 
 ## Model tiers
 
@@ -73,7 +73,7 @@ Only the area under the window is captured, and it is processed on your computer
 
 - downloading models during setup
 - downloading a font
-- pressing the button that looks up name translations online, which sends only the title and entry you typed
+- pressing Look up names online, which sends only the title and entry you typed
 
 Your settings, name lists and logs stay in the app folder.
 
@@ -82,15 +82,3 @@ Your settings, name lists and logs stay in the app folder.
 Window of Babel is released under the [GNU General Public License v3.0](LICENSE).
 
 Third-party models and libraries have their own terms. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-## 繁體中文
-
-巴別塔之窗是一塊可以移動的翻譯視窗。把它放到漫畫、遊戲、應用程式或網頁上，視窗內的文字就會被讀取、翻譯，並以你選擇的語言重新寫回畫面。
-
-所有處理都在你自己的電腦上進行，不需要帳號、API 金鑰或雲端服務。
-
-- **需求：** Windows 10／11（x64）、8 GB VRAM 或以上的顯示卡、[Ollama](https://ollama.com/download)、Python 3.10。
-- **安裝：** 依上方 [Install](#install) 的指令操作。首次開啟時，設定視窗會檢查 Ollama、讀取 VRAM、建議模型檔次，按一下即可下載。
-- **譯文語言：** 繁體中文、English、日本語、한국어。
-- **介面語言：** English、繁體中文、廣東話。
-- **授權：** GPL-3.0；第三方模型及套件的授權見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

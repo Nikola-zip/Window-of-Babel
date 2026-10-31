@@ -221,6 +221,7 @@ class SetupDialog(ThemedWindow):
         self.gpu.setText(tr("顯示卡：{name}，{vram} GB VRAM", name=name, vram=vram) if name else tr("顯示卡：讀唔到幾多 VRAM，自己揀一檔"))
         best = recommend(vram)
         reading, translation = current()
+        done = load_settings().get("已完成設定")
         for tier_name, tier in TIERS.items():
             need = to_download(tier_name, self.models) if alive else None
             if need is None:
@@ -230,14 +231,13 @@ class SetupDialog(ThemedWindow):
             else:
                 size = tr("｜✅ 已經有齊")
             tag = tr("（建議）") if tier_name == best else ""
-            using = tr("（而家用緊）") if same_model(reading, tier["讀字"]) and same_model(translation, tier["翻譯"]) else ""
+            using = tr("（而家用緊）") if done and same_model(reading, tier["讀字"]) and same_model(translation, tier["翻譯"]) else ""
             self.tier_buttons[tier_name].setText(tr("{tier_name}{tag}{using}：約 {v4} GB VRAM{size}", tier_name=tr(tier_name), tag=tag, using=using, v4=tier['VRAM'], size=size))
         # 剔住而家用緊嘅檔；未揀過先剔建議嗰檔。試過下載完剔返建議嘅「高」，
         # 用家再撳一下掣就由「中」轉返「高」，以為下載咗冇用
         # 未完成過設定：「而家用緊」只係程式預設（高），細卡用家唔應該見到佢剔咗
         in_use = next((name for name, tier in TIERS.items()
                        if same_model(reading, tier["讀字"]) and same_model(translation, tier["翻譯"])), None)
-        done = load_settings().get("已完成設定")
         self.tier_buttons[(in_use if done else None) or best].setChecked(True)
         missing = eraser_missing()
         if not missing:
@@ -332,8 +332,10 @@ class SetupDialog(ThemedWindow):
 
 
 def needs_setup():
-    """開程式要唔要彈設定：未裝或者未開 Ollama、或者揀咗嘅模型唔齊。"""
-    if not ollama_alive():
+    """開程式要唔要彈設定：未裝或者未開 Ollama、揀咗嘅模型唔齊，或者冇搵字、補圖模型檔。
+
+    搵字補圖都要查：重裝程式但 Ollama 模型仲喺度嘅人，唔查就靜靜雞用色塊蓋字，唔知缺咗嘢。"""
+    if not ollama_alive() or eraser_missing():
         return True
     models = installed()
     return not all(is_installed(name, models) for name in current())

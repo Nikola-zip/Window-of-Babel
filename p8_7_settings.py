@@ -23,6 +23,7 @@ from p8_5_names import memory, work_label
 from p8_6_fonts import available, chosen, chosen_name, has_bold, set_chosen, supports
 from p10_1_models import CUSTOM, TIERS, apply, installed, is_installed, same_model, tier_of
 from p10_1_models import current as current_models
+from p10_3_fonts import FontsDialog
 from ui_parts import CHINESE_FONTS, make_font, make_icon
 
 ROOT = Path(__file__).resolve().parent
@@ -177,7 +178,7 @@ class SettingsDialog(FluentWindow):
 
     def refresh(self):
         """將控制項設返做而家嘅值；擺嘅時候唔好觸發「改咗」，唔係擺一個存一次。"""
-        self._set(self.lens_font, chosen_name("譯鏡"))
+        self._fill_fonts()
         if hasattr(self, "text_percent"):
             self._value(self.text_percent, self.lens.text_percent)
             self.preview.scale = self.lens.text_percent / 100
@@ -230,10 +231,12 @@ class SettingsDialog(FluentWindow):
             self.lens_visible.checkedChanged.connect(self.hooks["set_lens_visible"])
             card(group, FluentIcon.FIT_PAGE, tr("顯示窗"), tr("收埋之後喺工作列圖示或者用熱鍵開返"), self.lens_visible)
         self.lens_font = ComboBox()
-        self.lens_font.addItems(available())
         self.lens_font.setMinimumWidth(220)
-        self.lens_font.currentTextChanged.connect(self._lens_font_changed)
-        card(group, FluentIcon.FONT, tr("譯文字型"), tr("譯文用邊隻字型"), self.lens_font)
+        self.lens_font.currentIndexChanged.connect(lambda _: self._lens_font_changed(self.lens_font.currentData()))
+        self.fonts = None       # 更多字型視窗：撳先開
+        more_fonts = PushButton(tr("更多字型…"))
+        more_fonts.clicked.connect(self._open_fonts)
+        card(group, FluentIcon.FONT, tr("譯文字型"), tr("譯文用邊隻字型"), self.lens_font, more_fonts)
         if hasattr(self.lens, "set_text_percent"):
             self.text_percent = SpinBox()
             self.text_percent.setRange(60, 150)
@@ -259,10 +262,28 @@ class SettingsDialog(FluentWindow):
         self.preview.scale = percent / 100
         self.preview.update()
 
+    def _fill_fonts(self):
+        """重新列字型：可能啱啱下載咗新嘅。顯示跟介面語言，存檔照用 CHOICES 嘅名。"""
+        self.lens_font.blockSignals(True)
+        self.lens_font.clear()
+        for name in available():
+            self.lens_font.addItem(tr(name), userData=name)
+        self.lens_font.setCurrentIndex(max(0, self.lens_font.findData(chosen_name("譯鏡"))))
+        self.lens_font.blockSignals(False)
+
     def _lens_font_changed(self, name):
         set_chosen("譯鏡", name)
         self.preview.update()
         self.lens.font_changed(name)
+
+    def _open_fonts(self):
+        if self.fonts is None:
+            self.fonts = FontsDialog(self._use_font)
+        self.fonts.open()
+
+    def _use_font(self, name):
+        self._lens_font_changed(name)
+        self._fill_fonts()
 
     # ---------- 翻譯 ----------
     def _translate_page(self):

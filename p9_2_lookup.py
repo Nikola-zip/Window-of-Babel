@@ -23,7 +23,8 @@ from i18n import tr
 from p2_1_translate import ask
 from p7_1_target import CONTEXT, current
 
-USER_AGENT = "window-of-babel/0.1 (hobby project)"     # 維基要求寫清楚係乜程式
+# 維基要有聯絡方法；Bangumi 要開發者 ID、程式名、版本，開源項目要加主頁。寫項目網址，唔寫個人電郵
+USER_AGENT = "Nikola-zip/window-of-babel/0.1 (https://github.com/Nikola-zip/Window-of-Babel)"
 TIMEOUT = 20
 WIKIS = {"繁體中文": ("zh", "zh-hk"), "English": ("en", None), "한국어": ("ko", None), "日本語": ("ja", None)}
 NEW_MAX = 20            # 新發現嘅詞最多幾多個字先列：再長嘅多數係作品標題、句子

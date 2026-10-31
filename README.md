@@ -75,7 +75,20 @@ Only the area under the window is captured, and it is processed on your computer
 - downloading a font
 - pressing Look up names online, which sends only the title and entry you typed
 
-Your settings, name lists and logs stay in the app folder.
+Your settings and name lists stay in the app folder. So do these:
+
+- **Logs:** `logs\` keeps the original text and translation of what the window read. They are deleted at the next launch once they pass the limit under Settings, General (30 days by default). You can also delete them yourself at any time.
+- **Screenshots:** saved to `screenshots\` only when you press 📷, and kept until you delete them.
+
+## Responsible use
+
+Window of Babel is for your own reading. Please don't share translated pages publicly, and support the official releases of the works you enjoy.
+
+The app only captures what is on your screen. It does not inject code into games or read their memory. Every game has its own rules, though, so check them before using it with an online game. You are responsible for how you use it.
+
+## Project status
+
+This is a hobby project, so replies and fixes are not guaranteed.
 
 ## Licence
 

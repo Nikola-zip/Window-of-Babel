@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from p2_1_translate import check_ollama, current_model, unload_model, warm_up
 from p2_3_glossary import GLOSSARY, load_glossary
+import theme
 from ui_parts import HoldButton, make_icon
 from p3_3_hotkeys import GlobalHotkeys, load_hotkeys, while_held
 from p3_4_history import HistoryPanel, SubtitleLog
@@ -59,6 +60,7 @@ def main():
     run_log = quiet_console()  # noqa: F841 —— 用捷徑開（冇 terminal）就將輸出寫入 logs\run
     qt = QApplication(sys.argv)
     qt.setQuitOnLastWindowClosed(False)     # 閂設定、歷史視窗唔好成個程式收工，靠工作列「閂」
+    theme.setup_theme(qt)
     lock = single_instance()   # noqa: F841 —— 要留住，閂程式先放手
     if lock is None:
         QMessageBox.information(None, APP_NAME, f"{APP_NAME}已經開咗：喺工作列右下角（可能喺「^」入面）搵佢個圖示。")
@@ -220,6 +222,7 @@ def main():
         # 閂程式即刻清走兩個模型，唔使等 Ollama 自己過咗時間先卸，即刻還返 VRAM
         print("清走翻譯模型：" + ("OK" if unload_model() else "Ollama 冇開，唔使清"))
         print("清走讀字模型：" + ("OK" if unload_model(vision_model()) else "Ollama 冇開，唔使清"))
+        theme.stop_theme()
 
     qt.aboutToQuit.connect(on_quit)
     print(f"譯做：{current().key}｜作品：{memory().work}（名單 {memory().path}）")

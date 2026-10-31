@@ -1,27 +1,28 @@
-# 巴別塔之窗：設定視窗（由譯幕第8期第7關嘅設定視窗改，拎走字幕、聽聲嗰啲）
+# 巴別塔之窗：設定視窗（Fluent 元件，配 theme.py 嘅古卷／夜空配色）
 #
-# 做咩：一個視窗分幾頁（譯鏡、翻譯、一般、熱鍵），將散喺工作列選單、譯鏡 ⚙、settings.json 嘅設定擺埋一齊。
+# 做咩：左邊導覽列分幾頁（窗、翻譯、模型、一般、熱鍵），將散喺工作列選單、窗 ⚙、settings.json 嘅設定擺埋一齊。
 #   改完即刻生效兼存檔，唔使撳「儲存」。選單照留：兩邊改嘅都係同一個設定，每次打開視窗先讀返最新嘅值。
 # 點用：main.py 開一個 SettingsDialog，將主程式嘅功能（轉語言、轉作品……）用 hooks 交俾佢。
-#   直接行係示範（假譯鏡，睇介面用）：.venv\Scripts\python -W ignore p8_7_settings.py
 
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 from PyQt6.QtCore import QRectF, Qt
 from PyQt6.QtGui import QColor, QPainter, QPen
-from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFormLayout, QGridLayout, QHBoxLayout, QInputDialog,
-                             QLabel, QPushButton, QSpinBox, QTabWidget, QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from qfluentwidgets import (BodyLabel, CaptionLabel, ComboBox, FluentIcon, FluentWindow, LineEdit, MessageBoxBase,
+                            NavigationItemPosition, PrimaryPushButton, PushButton, SettingCard, SettingCardGroup,
+                            SingleDirectionScrollArea, SpinBox, SubtitleLabel, SwitchButton, TitleLabel)
 
-from ui_parts import CHINESE_FONTS, make_font
+import theme
 from p4_6_launch import keep_days, load_settings, save_setting
 from p7_1_target import TARGETS, current, set_current
 from p8_5_names import memory
 from p8_6_fonts import available, chosen, chosen_name, has_bold, set_chosen, supports
 from p10_1_models import CUSTOM, TIERS, apply, installed, is_installed, same_model, tier_of
 from p10_1_models import current as current_models
+from ui_parts import CHINESE_FONTS, make_font, make_icon
 
 ROOT = Path(__file__).resolve().parent
 PREVIEW_TEXT = "這究竟是什麼？"
@@ -31,21 +32,21 @@ HOTKEY_LABELS = {"歷史": "歷史面板", "清空上下文": "清空翻譯上�
 # 錄新組合時認得嘅鍵：字母、數字、F1 至 F24（同 p3_3_hotkeys.parse 認得嘅一樣）
 KEY_NAMES = {**{getattr(Qt.Key, f"Key_{c}"): c for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"},
              **{getattr(Qt.Key, f"Key_F{n}"): f"F{n}" for n in range(1, 25)}}
+GRID_WIDTH = 300        # 右邊揀模型嘅下拉闊度：模型名好長
 
 
 class LensPreview(QWidget):
-    """譯鏡字型預覽：畫一個白色對白框，入面用揀咗嘅字型直排寫一句（同譯鏡一樣：冇真粗體就唔加粗）。"""
+    """字型預覽：畫一個白色對白框，入面用揀咗嘅字型直排寫一句（同個窗一樣：冇真粗體就唔加粗）。"""
 
     def __init__(self):
         super().__init__()
-        self.setMinimumSize(180, 220)
-        self.scale = 1.0        # 譯文字大細（設定「譯文字大細」）：預覽都跟住大細
+        self.setFixedSize(200, 220)
+        self.scale = 1.0        # 譯文字大細：預覽都跟住大細
 
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-        p.fillRect(self.rect(), QColor("#bdbdbd"))
         bubble = QRectF(10, 10, self.width() - 20, self.height() - 20)
         p.setPen(QPen(QColor("black"), 3))
         p.setBrush(QColor("white"))
@@ -62,40 +63,98 @@ class LensPreview(QWidget):
             top = bubble.center().y() - len(columns[0]) * px * 1.05 / 2
             for k, char in enumerate(column):
                 vertical = {"，": "︐", "？": "︖"}.get(char, char)
-                char = vertical if supports(family, vertical) else char     # 同譯鏡一樣：字型冇直排標點就用普通嘅
+                char = vertical if supports(family, vertical) else char     # 同個窗一樣：字型冇直排標點就用普通嘅
                 p.drawText(QRectF(x, top + k * px * 1.05, px * 1.1, px * 1.05), Qt.AlignmentFlag.AlignCenter, char)
 
 
-class SettingsDialog(QWidget):
+class Page(SingleDirectionScrollArea):
+    """一頁設定：標題、一句說明，下面一組組卡片；內容長過視窗就捲。"""
+
+    def __init__(self, name, title, hint):
+        super().__init__(orient=Qt.Orientation.Vertical)
+        self.setObjectName(name)        # Fluent 導覽列用 objectName 認頁
+        self.setWidgetResizable(True)
+        self.setStyleSheet("background: transparent; border: none;")
+        self.body = QWidget()
+        self.body.setStyleSheet("background: transparent;")
+        self.column = QVBoxLayout(self.body)
+        self.column.setContentsMargins(36, 24, 36, 24)
+        self.column.setSpacing(14)
+        self.column.addWidget(TitleLabel(title))
+        note = CaptionLabel(hint)
+        note.setWordWrap(True)      # 長句要換行：唔係成頁會闊過視窗，多條橫向捲軸
+        self.column.addWidget(note)
+        self.setWidget(self.body)
+
+    def group(self, title):
+        group = SettingCardGroup(title, self.body)
+        self.column.addWidget(group)
+        return group
+
+    def finish(self):
+        self.column.addStretch()
+
+
+def card(group, icon, title, hint, *widgets):
+    """一張設定卡：左邊圖示、標題、說明，右邊擺控制項。"""
+    item = SettingCard(icon, title, hint, group)
+    for widget in widgets:
+        item.hBoxLayout.addWidget(widget)
+        item.hBoxLayout.addSpacing(8)
+    item.hBoxLayout.addSpacing(8)
+    group.addSettingCard(item)
+    return item
+
+
+class NewWorkBox(MessageBoxBase):
+    """開新作品：Fluent 版細視窗（QInputDialog 嘅舊款樣同其他頁唔夾）。"""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.viewLayout.addWidget(SubtitleLabel("開新作品"))
+        self.edit = LineEdit()
+        self.edit.setPlaceholderText("作品名（例如漫畫名、遊戲名）")
+        self.edit.setMinimumWidth(320)
+        self.viewLayout.addWidget(self.edit)
+        self.yesButton.setText("開")
+        self.cancelButton.setText("取消")
+
+
+class SettingsDialog(FluentWindow):
     """設定視窗。hooks：主程式交落嚟嘅功能（見 main.py）；冇嘅就唔顯示嗰項。"""
 
     def __init__(self, lens, hooks=None):
         super().__init__()
         self.lens, self.hooks = lens, hooks or {}
         self.setWindowTitle("巴別塔之窗：設定")
-        # 塊鏡係置頂嘅，呢個視窗都要置頂，唔係會被遮住
+        self.setWindowIcon(make_icon())
+        # 個窗係置頂嘅，呢個視窗都要置頂，唔係會被遮住
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
-        self.tabs = QTabWidget()
-        self.tabs.addTab(self._lens_page(), "窗")
-        self.tabs.addTab(self._translate_page(), "翻譯")
-        self.tabs.addTab(self._models_page(), "模型")
-        self.tabs.addTab(self._general_page(), "一般")
+        self.resize(980, 680)
+        theme.style_window(self)
+        # 導覽列長開、顯示文字：得五頁，唔使收埋做圖示；上一頁掣喺設定入面冇用
+        self.navigationInterface.setReturnButtonVisible(False)
+        self.navigationInterface.setMenuButtonVisible(False)
+        self.navigationInterface.setCollapsible(False)
+        self.navigationInterface.setExpandWidth(160)
+        # 收埋咗上一頁、選單掣，第一項會頂到最頂，同標題列疊埋；留返標題列嘅高度
+        self.navigationInterface.panel.vBoxLayout.setContentsMargins(0, 46, 0, 5)
         self.capturing = None       # 錄緊邊個熱鍵嘅新組合
+        self.pages = {"窗": self._lens_page(), "翻譯": self._translate_page(), "模型": self._models_page(),
+                      "一般": self._general_page()}
+        for name, icon in (("窗", FluentIcon.FIT_PAGE), ("翻譯", FluentIcon.LANGUAGE), ("模型", FluentIcon.ROBOT)):
+            self.addSubInterface(self.pages[name], icon, name)
+        self.addSubInterface(self.pages["一般"], FluentIcon.SETTING, "一般", NavigationItemPosition.BOTTOM)
         if "hotkeys" in self.hooks:
-            self.tabs.addTab(self._hotkey_page(), "熱鍵")
-        self.tabs.currentChanged.connect(lambda _: self.refresh())     # 轉頁都讀返最新（可能喺選單改過）
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.tabs)
-        note = QLabel("改完即刻生效，會自動存檔。")
-        note.setStyleSheet("color: #777;")
-        layout.addWidget(note)
+            self.pages["熱鍵"] = self._hotkey_page()
+            self.addSubInterface(self.pages["熱鍵"], FluentIcon.COMMAND_PROMPT, "熱鍵", NavigationItemPosition.BOTTOM)
+        self.stackedWidget.currentChanged.connect(lambda _: self.refresh())     # 轉頁都讀返最新（可能喺選單改過）
 
     # ---------- 打開 ----------
     def open(self, page="窗"):
         """打開去某一頁（「窗」「翻譯」「模型」「一般」「熱鍵」）。"""
-        for i in range(self.tabs.count()):
-            if self.tabs.tabText(i) == page:
-                self.tabs.setCurrentIndex(i)
+        if page in self.pages:      # 選單撳入嚟 Qt 會塞個 checked 落嚟，唔係頁名就留喺而家嗰頁
+            self.switchTo(self.pages[page])
         self.refresh()
         self.show()
         self.raise_()
@@ -105,9 +164,7 @@ class SettingsDialog(QWidget):
         """將控制項設返做而家嘅值；擺嘅時候唔好觸發「改咗」，唔係擺一個存一次。"""
         self._set(self.lens_font, chosen_name("譯鏡"))
         if hasattr(self, "text_percent"):
-            self.text_percent.blockSignals(True)
-            self.text_percent.setValue(self.lens.text_percent)
-            self.text_percent.blockSignals(False)
+            self._value(self.text_percent, self.lens.text_percent)
             self.preview.scale = self.lens.text_percent / 100
         self._check(self.sound_effects, self.lens.sound_effects)
         self._check(self.auto_mode, self.lens.auto)
@@ -116,14 +173,11 @@ class SettingsDialog(QWidget):
         self.preview.update()
         self._set(self.target, current().key)
         self._fill_works()
-        if self.tabs.tabText(self.tabs.currentIndex()) == "模型":
+        if self.stackedWidget.currentWidget() is self.pages["模型"]:
             self._fill_models()     # 要問 Ollama，淨係睇緊呢頁先問，唔好拖慢開其他頁
-        self.keep.blockSignals(True)
-        self.keep.setValue(keep_days())
-        self.keep.blockSignals(False)
-        self.history.blockSignals(True)
-        self.history.setValue(int(load_settings().get("歷史句數", 200)))
-        self.history.blockSignals(False)
+        self._set(self.theme_choice, theme.current_choice())
+        self._value(self.keep, keep_days())
+        self._value(self.history, int(load_settings().get("歷史句數", 200)))
         if "hotkeys" in self.hooks:
             self._show_hotkeys()
 
@@ -134,45 +188,48 @@ class SettingsDialog(QWidget):
         combo.blockSignals(False)
 
     @staticmethod
-    def _check(box, on):
+    def _check(switch, on):
+        switch.blockSignals(True)
+        switch.setChecked(bool(on))
+        switch.blockSignals(False)
+
+    @staticmethod
+    def _value(box, value):
         box.blockSignals(True)
-        box.setChecked(bool(on))
+        box.setValue(value)
         box.blockSignals(False)
 
-    # ---------- 譯鏡 ----------
+    # ---------- 窗 ----------
     def _lens_page(self):
-        page = QWidget()
-        layout = QHBoxLayout(page)
-        form = QFormLayout()
+        page = Page("lens", "窗", "轉字型、字大細唔使重新讀字；擬聲字開關下次讀字生效。")
+        group = page.group("顯示")
         if "set_lens_visible" in self.hooks:
-            self.lens_visible = QCheckBox("顯示窗")
-            self.lens_visible.toggled.connect(self.hooks["set_lens_visible"])
-            form.addRow("窗", self.lens_visible)
-        self.lens_font = QComboBox()
+            self.lens_visible = SwitchButton()
+            self.lens_visible.checkedChanged.connect(self.hooks["set_lens_visible"])
+            card(group, FluentIcon.FIT_PAGE, "顯示窗", "收埋之後喺工作列圖示或者用熱鍵開返", self.lens_visible)
+        self.lens_font = ComboBox()
         self.lens_font.addItems(available())
+        self.lens_font.setMinimumWidth(220)
         self.lens_font.currentTextChanged.connect(self._lens_font_changed)
-        form.addRow("譯文字型", self.lens_font)
+        card(group, FluentIcon.FONT, "譯文字型", "譯文用邊隻字型", self.lens_font)
         if hasattr(self.lens, "set_text_percent"):
-            self.text_percent = QSpinBox()
+            self.text_percent = SpinBox()
             self.text_percent.setRange(60, 150)
             self.text_percent.setSingleStep(10)
             self.text_percent.setSuffix(" %")
-            self.text_percent.setToolTip("調大最多大到塞滿對白框；調細就成比例縮。唔使重新讀字")
             self.text_percent.valueChanged.connect(self._text_percent_changed)
-            form.addRow("譯文字大細", self.text_percent)
-        self.sound_effects = QCheckBox("擬聲字都譯")
-        self.sound_effects.toggled.connect(self.lens.set_sound_effects)
-        form.addRow("擬聲字", self.sound_effects)
-        self.auto_mode = QCheckBox("自動模式（畫面停定就讀）")
-        self.auto_mode.toggled.connect(self.lens.set_auto)
-        form.addRow("自動", self.auto_mode)
-        tip = QLabel("轉字型、字大細唔使重新讀字；擬聲字開關下次讀字生效。")
-        tip.setStyleSheet("color: #777;")
-        tip.setWordWrap(True)
-        form.addRow(tip)
-        layout.addLayout(form, 1)
+            card(group, FluentIcon.FONT_SIZE, "譯文字大細", "調大最多塞滿對白框；調細就成比例縮", self.text_percent)
+        group = page.group("讀字")
+        self.sound_effects = SwitchButton()
+        self.sound_effects.checkedChanged.connect(self.lens.set_sound_effects)
+        card(group, FluentIcon.BRUSH, "擬聲字都譯", "閂咗就保留原本嘅擬聲字", self.sound_effects)
+        self.auto_mode = SwitchButton()
+        self.auto_mode.checkedChanged.connect(self.lens.set_auto)
+        card(group, FluentIcon.SYNC, "自動模式", "畫面停定就自動讀字", self.auto_mode)
+        page.column.addWidget(SubtitleLabel("字型預覽"))
         self.preview = LensPreview()
-        layout.addWidget(self.preview)
+        page.column.addWidget(self.preview)
+        page.finish()
         return page
 
     def _text_percent_changed(self, percent):
@@ -187,35 +244,32 @@ class SettingsDialog(QWidget):
 
     # ---------- 翻譯 ----------
     def _translate_page(self):
-        page = QWidget()
-        form = QFormLayout(page)
-        self.target = QComboBox()
+        page = Page("translate", "翻譯", "譯成邊種語言，同埋每部作品嘅人名、用語。")
+        group = page.group("語言")
+        self.target = ComboBox()
         self.target.addItems(list(TARGETS))
+        self.target.setMinimumWidth(180)
         self.target.currentTextChanged.connect(self._target_changed)
-        form.addRow("譯做", self.target)
-
-        self.works = QComboBox()
+        card(group, FluentIcon.LANGUAGE, "譯做", "譯文用邊種語言", self.target)
+        group = page.group("作品（人名記憶）")
+        self.works = ComboBox()
+        self.works.setMinimumWidth(180)
         self.works.currentTextChanged.connect(self._work_changed)
-        new_work = QPushButton("開新作品…")
+        new_work = PushButton("開新作品…")
         new_work.clicked.connect(self._new_work)
-        names = QPushButton("開名單")
+        card(group, FluentIcon.BOOK_SHELF, "作品", "每部作品記住自己嘅人名譯法", self.works, new_work)
+        names = PushButton("開名單")
         names.clicked.connect(lambda: memory().open_file())
-        row = QWidget()
-        line = QHBoxLayout(row)
-        line.setContentsMargins(0, 0, 0, 0)
-        line.addWidget(self.works, 1)
-        line.addWidget(new_work)
-        line.addWidget(names)
-        form.addRow("作品（人名記憶）", row)
-        lookup = QPushButton("網上搵譯名…")
+        card(group, FluentIcon.PEOPLE, "人名名單", "用記事本改呢部作品記低嘅譯名", names)
+        lookup = PushButton("網上搵譯名…")
         lookup.setToolTip("用作品名喺維基百科、Bangumi、AniList 等網站搵角色、用語嘅譯法，揀咗先寫入名單；撳先會上網")
         lookup.clicked.connect(self._open_lookup)
-        form.addRow("", lookup)
-
+        card(group, FluentIcon.SEARCH, "網上搵譯名", "喺公開網站搵人哋點譯，你揀咗先寫入名單", lookup)
         if "glossary" in self.hooks:
-            glossary = QPushButton("開詞庫（改完要重開程式）")
+            glossary = PushButton("開詞庫")
             glossary.clicked.connect(lambda: notepad(self.hooks["glossary"]))
-            form.addRow("詞庫", glossary)
+            card(group, FluentIcon.DOCUMENT, "詞庫", "固定譯法；改完要重開程式", glossary)
+        page.finish()
         return page
 
     def _open_lookup(self):
@@ -244,54 +298,51 @@ class SettingsDialog(QWidget):
             self.hooks["work_changed"](memory().work)
 
     def _new_work(self):
-        work, ok = QInputDialog.getText(self, "開新作品", "作品名（例如漫畫名、遊戲名）：")
-        if ok and work.strip():
-            memory().set_work(work.strip())
+        box = NewWorkBox(self)
+        if box.exec() and box.edit.text().strip():
+            memory().set_work(box.edit.text().strip())
             self._fill_works()
             if "work_changed" in self.hooks:
                 self.hooks["work_changed"](memory().work)
 
     # ---------- 模型 ----------
     def _models_page(self):
-        page = QWidget()
-        form = QFormLayout(page)
-        self.tier = QComboBox()
+        page = Page("models", "模型", "揀啱你張顯示卡嘅檔；轉模型即刻生效，唔使重開，舊模型會即刻卸走。")
+        group = page.group("建議組合（VRAM 已經計埋搵字、補圖模型）")
+        self.tier = ComboBox()
         for name, tier in TIERS.items():
-            self.tier.addItem(f"{name}（約 {tier['VRAM']} GB VRAM）", name)
-        self.tier.addItem("自訂（自己揀下面兩個）", CUSTOM)
+            self.tier.addItem(f"{name}（約 {tier['VRAM']} GB VRAM）", userData=name)
+        self.tier.addItem("自訂", userData=CUSTOM)
+        self.tier.setMinimumWidth(220)
         # activated 唔係 currentIndexChanged：程式自己擺返而家嗰檔唔好當用家揀咗，唔係開頁就轉模型
         self.tier.activated.connect(self._tier_picked)
-        form.addRow("檔", self.tier)
-        self.tier_note = QLabel()
-        self.tier_note.setWordWrap(True)
-        self.tier_note.setStyleSheet("color: #777;")
-        form.addRow("", self.tier_note)
-        self.reading_model = QComboBox()
+        self.tier_card = card(group, FluentIcon.SPEED_HIGH, "檔", "", self.tier)
+        group = page.group("自己揀")
+        self.reading_model = ComboBox()
+        self.reading_model.setMinimumWidth(GRID_WIDTH)
         self.reading_model.activated.connect(self._model_picked)
-        form.addRow("讀字模型（👁 識睇圖）", self.reading_model)
-        self.translation_model = QComboBox()
+        card(group, FluentIcon.VIEW, "讀字模型", "淨列識睇圖嘅模型", self.reading_model)
+        self.translation_model = ComboBox()
+        self.translation_model.setMinimumWidth(GRID_WIDTH)
         self.translation_model.activated.connect(self._model_picked)
-        form.addRow("翻譯模型", self.translation_model)
-        self.model_status = QLabel()
+        card(group, FluentIcon.LANGUAGE, "翻譯模型", "將讀到嘅字譯成你揀嘅語言", self.translation_model)
+        self.model_status = BodyLabel()
         self.model_status.setWordWrap(True)
-        form.addRow(self.model_status)
-        reload = QPushButton("重新讀取模型清單")
-        reload.clicked.connect(self._fill_models)
+        page.column.addWidget(self.model_status)
         buttons = QWidget()
         row = QHBoxLayout(buttons)
         row.setContentsMargins(0, 0, 0, 0)
-        row.addWidget(reload)
         if "open_setup" in self.hooks:
-            download = QPushButton("下載模型…")
+            download = PrimaryPushButton(FluentIcon.DOWNLOAD, "下載模型…")
             download.setToolTip("開第一次設定：睇張卡建議邊檔，撳一下就下載")
             download.clicked.connect(self.hooks["open_setup"])
             row.addWidget(download)
-        form.addRow("", buttons)
-        tip = QLabel("轉模型即刻生效，唔使重開；冇再用嘅舊模型會即刻卸走，還返 VRAM。"
-                     "VRAM 已經計埋搵字、補圖模型（約 1.7 GB）。")
-        tip.setStyleSheet("color: #777;")
-        tip.setWordWrap(True)
-        form.addRow(tip)
+        reload = PushButton(FluentIcon.SYNC, "重新讀取模型清單")
+        reload.clicked.connect(self._fill_models)
+        row.addWidget(reload)
+        row.addStretch()
+        page.column.addWidget(buttons)
+        page.finish()
         return page
 
     def _fill_models(self):
@@ -314,16 +365,17 @@ class SettingsDialog(QWidget):
                 if any(same_model(name, seen) for seen in listed):
                     continue
                 listed.append(name)
-                combo.addItem(name if is_installed(name, models) else f"{name}（未下載）", name)
+                combo.addItem(name if is_installed(name, models) else f"{name}（未下載）", userData=name)
             combo.setCurrentIndex(next(i for i, name in enumerate(listed) if same_model(name, chosen_now)))
         tier = tier_of(reading, translation)
         self.tier.setCurrentIndex(self.tier.findData(tier))
-        self.tier_note.setText(TIERS[tier]["說明"] if tier in TIERS else "自己揀嘅組合：未經測試，讀字模型唔跟格式就會讀唔到字")
+        self.tier_card.setContent(TIERS[tier]["說明"] if tier in TIERS else
+                                  "自己揀嘅組合：未經測試，讀字模型唔跟格式就會讀唔到字")
 
     def _tier_picked(self, index):
         name = self.tier.itemData(index)
         if name == CUSTOM:
-            self.tier_note.setText("喺下面揀讀字同翻譯模型")
+            self.tier_card.setContent("喺下面揀讀字同翻譯模型")
             return
         self._switch(TIERS[name]["讀字"], TIERS[name]["翻譯"])
 
@@ -346,67 +398,61 @@ class SettingsDialog(QWidget):
 
     # ---------- 一般 ----------
     def _general_page(self):
-        page = QWidget()
-        form = QFormLayout(page)
-        self.history = QSpinBox()
+        page = Page("general", "一般", "外觀、紀錄同資料夾。")
+        group = page.group("外觀")
+        self.theme_choice = ComboBox()
+        self.theme_choice.addItems(list(theme.CHOICES))
+        self.theme_choice.setMinimumWidth(140)
+        self.theme_choice.currentTextChanged.connect(theme.set_choice)
+        card(group, FluentIcon.PALETTE, "介面主題", "淺色係古卷色，深色係夜空色；跟系統就跟 Windows 轉", self.theme_choice)
+        group = page.group("紀錄")
+        self.history = SpinBox()
         self.history.setRange(10, 1000)
         self.history.setSuffix(" 句")
         self.history.valueChanged.connect(self._history_changed)
-        form.addRow("歷史面板記住", self.history)
-        self.keep = QSpinBox()
+        card(group, FluentIcon.HISTORY, "歷史面板記住", "面板顯示最近幾多句", self.history)
+        self.keep = SpinBox()
         self.keep.setRange(1, 365)
         self.keep.setSuffix(" 日")
         self.keep.valueChanged.connect(lambda days: save_setting("紀錄保留日數", days))
-        form.addRow("紀錄保留（下次開機清）", self.keep)
-        logs = QPushButton("開紀錄資料夾")
+        card(group, FluentIcon.DOCUMENT, "紀錄保留", "超過就喺下次開機清走", self.keep)
+        group = page.group("資料夾")
+        logs = PushButton("開紀錄資料夾")
         logs.clicked.connect(lambda: open_folder(ROOT / "logs"))
-        shots = QPushButton("開截圖資料夾")
+        shots = PushButton("開截圖資料夾")
         shots.clicked.connect(lambda: open_folder(ROOT / "screenshots"))
-        row = QWidget()
-        line = QHBoxLayout(row)
-        line.setContentsMargins(0, 0, 0, 0)
-        line.addWidget(logs)
-        line.addWidget(shots)
-        form.addRow("資料夾", row)
+        card(group, FluentIcon.FOLDER, "資料夾", "翻譯紀錄同 📷 存低嘅截圖", logs, shots)
+        page.finish()
         return page
 
     # ---------- 熱鍵 ----------
     def _hotkey_page(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        grid = QGridLayout()
+        page = Page("hotkeys", "熱鍵", "撳「改」，再撳新嘅組合（要有 Ctrl／Alt／Shift／Win，加字母、數字或者 F 鍵）；Esc 取消。")
+        group = page.group("全域熱鍵")
         self.hotkey_rows = {}
-        keys = self.hooks["hotkeys"]
-        for row, name in enumerate(keys.texts):
-            combo, status = QLabel(), QLabel()
-            change = QPushButton("改")
+        for name in self.hooks["hotkeys"].texts:
+            combo = BodyLabel()
+            change = PushButton("改")
             change.clicked.connect(lambda _=False, name=name: self._start_capture(name))
-            grid.addWidget(QLabel(HOTKEY_LABELS.get(name, name)), row, 0)
-            grid.addWidget(combo, row, 1)
-            grid.addWidget(change, row, 2)
-            grid.addWidget(status, row, 3)
-            self.hotkey_rows[name] = (combo, change, status)
-        grid.setColumnStretch(3, 1)
-        layout.addLayout(grid)
-        self.hotkey_note = QLabel("撳「改」，再撳新嘅組合（要有 Ctrl／Alt／Shift／Win，加字母、數字或者 F 鍵）；Esc 取消。")
+            item = card(group, FluentIcon.COMMAND_PROMPT, HOTKEY_LABELS.get(name, name), "", combo, change)
+            self.hotkey_rows[name] = (combo, change, item)
+        self.hotkey_note = BodyLabel()
         self.hotkey_note.setWordWrap(True)
-        self.hotkey_note.setStyleSheet("color: #777;")
-        layout.addWidget(self.hotkey_note)
-        reset = QPushButton("全部還原預設")
+        page.column.addWidget(self.hotkey_note)
+        reset = PushButton(FluentIcon.UPDATE, "全部還原預設")
         reset.clicked.connect(self._reset_hotkeys)
-        layout.addWidget(reset)
-        layout.addStretch()
+        page.column.addWidget(reset, alignment=Qt.AlignmentFlag.AlignLeft)
+        page.finish()
         return page
 
     def _show_hotkeys(self):
         keys = self.hooks["hotkeys"]
-        for name, (combo, change, status) in self.hotkey_rows.items():
+        for name, (combo, change, item) in self.hotkey_rows.items():
             capturing = name == self.capturing
             combo.setText("撳新組合…" if capturing else keys.texts.get(name, ""))
             change.setText("取消" if capturing else "改")
             problem = keys.problems.get(name)
-            status.setText(f"⚠️ {problem}" if problem else "")
-            status.setStyleSheet("color: #d9534f;")
+            item.setContent(f"⚠️ {problem}" if problem else "")
 
     def _start_capture(self, name):
         if self.capturing == name:          # 再撳一下「取消」
@@ -480,34 +526,3 @@ def notepad(path):
 def open_folder(path):
     path.mkdir(exist_ok=True)
     os.startfile(path)      # 用檔案總管開
-
-
-def main():
-    """示範：用一個假譯鏡睇介面；改嘅設定會真係存入 settings.json。"""
-    class FakeLens:
-        sound_effects, auto, text_percent = True, False, 100
-
-        def set_text_percent(self, percent):
-            self.text_percent = percent
-            print("譯文字大細：", percent)
-
-        def set_sound_effects(self, on):
-            self.sound_effects = on
-            print("擬聲字都譯：", on)
-
-        def set_auto(self, on):
-            self.auto = on
-            print("自動模式：", on)
-
-        def font_changed(self, name):
-            print("譯文字型：", name)
-
-    app = QApplication(sys.argv)
-    dialog = SettingsDialog(FakeLens(), {"target_changed": lambda t: print("譯做：", t.key),
-                                         "work_changed": lambda w: print("作品：", w)})
-    dialog.open()
-    app.exec()
-
-
-if __name__ == "__main__":
-    main()

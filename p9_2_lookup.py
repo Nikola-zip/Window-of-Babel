@@ -343,85 +343,89 @@ def lookup_dialog():
     """要用 Qt 先 import：上面嘅函數唔使開視窗都用得（測試、示範）。"""
     from PyQt6.QtCore import Qt, QUrl
     from PyQt6.QtGui import QDesktopServices
-    from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
-                                 QPlainTextEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
+    from PyQt6.QtWidgets import QApplication, QHBoxLayout, QTableWidgetItem, QVBoxLayout
+    from qfluentwidgets import (BodyLabel, CaptionLabel, CheckBox, ComboBox, EditableComboBox, FluentIcon, LineEdit,
+                                PlainTextEdit, PrimaryPushButton, PushButton, SimpleCardWidget, StrongBodyLabel,
+                                TableWidget)
 
     from p8_5_names import DEFAULT_WORK, memory
+    from theme import ThemedWindow
 
     def unique(items):
         return list(dict.fromkeys(i for i in items if i))
 
-    class LookupDialog(QWidget):
+    class LookupDialog(ThemedWindow):
         COLUMNS = ["用", "原文", "而家譯名", "新譯名（可以自己改）", "各網站譯法"]
         SITES = ["MangaDex", "維基", "AniList", "Bangumi", "貼上"]
 
         def __init__(self):
-            super().__init__()
-            self.setWindowTitle("巴別塔之窗：網上搵譯名")
-            self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
-            self.resize(860, 760)
-            self.query = QLineEdit()
+            super().__init__("巴別塔之窗：網上搵譯名", 900, 800)
+            self.query = LineEdit()
             self.query.setPlaceholderText("作品名（日文原名、英文名、中文譯名都得，例如 シャングリラ・フロンティア）")
-            find = QPushButton("搵")
+            find = PrimaryPushButton(FluentIcon.SEARCH, "搵")
             find.clicked.connect(self._search)
             self.query.returnPressed.connect(self._search)
-            self.report = QLabel()
+            self.report = CaptionLabel()
             self.report.setWordWrap(True)
             self.report.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            self.hits = QComboBox()
-            read = QPushButton("讀呢個條目")
+            self.hits = ComboBox()
+            read = PushButton("讀呢個條目")
             read.clicked.connect(self._read)
 
             # ---- 貼上文字：萌娘百科擋咗程式，但你喺瀏覽器睇得，複製成頁貼入嚟就得 ----
-            self.paste = QPlainTextEdit()
+            self.paste = PlainTextEdit()
             self.paste.setPlaceholderText("喺瀏覽器打開角色介紹頁（例如萌娘百科），Ctrl+A 全選、Ctrl+C 複製，貼喺度，"
                                           "再撳「讀貼上嘅文字」。成頁貼都得，簡體會自動轉繁體。")
             self.paste.setMaximumHeight(90)
-            moegirl = QPushButton("喺瀏覽器開萌娘百科")
+            moegirl = PushButton(FluentIcon.GLOBE, "喺瀏覽器開萌娘百科")
             moegirl.clicked.connect(lambda: self._browse(
                 "https://zh.moegirl.org.cn/index.php?variant=zh-hk&search=", name=self.original))
-            google = QPushButton("Google 搵")
+            google = PushButton(FluentIcon.GLOBE, "Google 搵")
             google.clicked.connect(lambda: self._browse("https://www.google.com/search?q=", " 角色"))
-            read_paste = QPushButton("讀貼上嘅文字")
+            read_paste = PushButton("讀貼上嘅文字")
             read_paste.clicked.connect(self._read_paste)
             paste_buttons = QHBoxLayout()
             paste_buttons.addWidget(moegirl)
             paste_buttons.addWidget(google)
             paste_buttons.addStretch()
             paste_buttons.addWidget(read_paste)
-            paste_box = QGroupBox("貼上網頁文字（最可信：網頁寫明嘅譯名排第一）")
+            paste_box = SimpleCardWidget()
             paste_layout = QVBoxLayout(paste_box)
+            paste_layout.setContentsMargins(14, 10, 14, 12)
+            paste_layout.addWidget(StrongBodyLabel("貼上網頁文字（最可信：網頁寫明嘅譯名排第一）"))
             paste_layout.addWidget(self.paste)
             paste_layout.addLayout(paste_buttons)
 
-            self.status = QLabel("撳「搵」先會上網（只係送作品名）。")
+            self.status = BodyLabel("撳「搵」先會上網（只係送作品名）。")
             self.status.setWordWrap(True)
-            self.table = QTableWidget(0, len(self.COLUMNS))
+            self.table = TableWidget()
+            self.table.setBorderVisible(True)
+            self.table.setBorderRadius(8)
+            self.table.setColumnCount(len(self.COLUMNS))
             self.table.setHorizontalHeaderLabels(self.COLUMNS)
             self.table.horizontalHeader().setStretchLastSection(True)
-            self.show_new = QCheckBox("加埋名單未有嘅角色、用語")
+            self.show_new = CheckBox("加埋名單未有嘅角色、用語")
             self.show_new.toggled.connect(self._fill)
-            save = QPushButton("將剔咗嘅寫入名單")
+            save = PrimaryPushButton("將剔咗嘅寫入名單")
             save.clicked.connect(self._save)
             top = QHBoxLayout()
             top.addWidget(self.query, 1)
             top.addWidget(find)
             middle = QHBoxLayout()
-            middle.addWidget(QLabel("維基條目"))
+            middle.addWidget(BodyLabel("維基條目"))
             middle.addWidget(self.hits, 1)
             middle.addWidget(read)
             bottom = QHBoxLayout()
             bottom.addWidget(self.show_new)
             bottom.addStretch()
             bottom.addWidget(save)
-            layout = QVBoxLayout(self)
-            layout.addLayout(top)
-            layout.addWidget(self.report)
-            layout.addLayout(middle)
-            layout.addWidget(paste_box)
-            layout.addWidget(self.status)
-            layout.addWidget(self.table, 1)
-            layout.addLayout(bottom)
+            self.body.addLayout(top)
+            self.body.addWidget(self.report)
+            self.body.addLayout(middle)
+            self.body.addWidget(paste_box)
+            self.body.addWidget(self.status)
+            self.body.addWidget(self.table, 1)
+            self.body.addLayout(bottom)
             self.sources = {"貼上": {}, "維基": {}, "Bangumi": {}}     # 次序＝可信程度
             self.texts = {"貼上": "", "維基": ""}
             self.english, self.cache, self.sites, self.found, self.known = {}, {}, {}, {}, {}
@@ -497,7 +501,7 @@ def lookup_dialog():
             hits.sort(key=lambda hit: not same_title(hit[0], names))
             self.hits.clear()
             for title, pageid in hits[:8]:
-                self.hits.addItem(title, pageid)
+                self.hits.addItem(title, userData=pageid)
             if not hits and "維基" not in self.sites:
                 self._site("維基", "搵唔到條目")
             elif hits and not same_title(hits[0][0], names):
@@ -590,7 +594,7 @@ def lookup_dialog():
             self.table.setRowCount(0)           # 先清晒舊行：唔係舊嘅下拉選單會殘留疊喺上面
             self.table.setRowCount(len(rows))
             for r, (term, now, choices, detail, checked) in enumerate(rows):
-                use = QCheckBox()
+                use = CheckBox()
                 use.setChecked(checked)
                 self.table.setCellWidget(r, 0, use)
                 for c, text in ((1, term), (2, now), (4, detail)):
@@ -598,9 +602,9 @@ def lookup_dialog():
                     item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                     item.setToolTip(text)
                     self.table.setItem(r, c, item)
-                pick = QComboBox()
-                pick.setEditable(True)
+                pick = EditableComboBox()
                 pick.addItems(choices)
+                pick.setCurrentIndex(0)
                 self.table.setCellWidget(r, 3, pick)
             self.table.resizeColumnsToContents()
 

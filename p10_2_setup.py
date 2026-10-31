@@ -4,24 +4,24 @@
 #   建議一檔 ③ 列出輕／中／高三檔，每檔寫明要下載幾多、已經有咗邊啲 ④ 用家撳「下載並使用」先下載，有進度條；
 #   Hy-MT2 1.8B 下載完自動整修好範本嘅版本（Ollama 自動轉嘅範本壞咗，見 p10_1_models）。
 #   揀咗嘅模型唔齊，開程式就會彈出嚟；設定「模型」頁都有掣再開。
-# 點用：main.py 會用 SetupDialog；直接行係示範（真係會檢查，撳「下載」先會真係下載）：
-#   .venv\Scripts\python -W ignore p10_2_setup.py
+# 點用：main.py 會用 SetupDialog。
 
 import hashlib
 import json
-import sys
 import threading
 import urllib.request
 import webbrowser
 import winreg
 
-from PyQt6.QtCore import QObject, Qt, pyqtSignal
-from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QProgressBar, QPushButton,
-                             QRadioButton, QVBoxLayout, QWidget)
+from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtWidgets import QApplication, QButtonGroup, QHBoxLayout, QVBoxLayout
+from qfluentwidgets import (BodyLabel, CaptionLabel, IndeterminateProgressBar, PrimaryPushButton, ProgressBar,
+                            PushButton, RadioButton, SimpleCardWidget, StrongBodyLabel)
 
 from p2_1_translate import ollama_alive
 from p4_6_launch import OLLAMA_APP, ensure_ollama, load_settings, save_setting
 from p6_5_inpaint import FINDER_MODEL, LAMA_MODEL
+from theme import ThemedWindow
 from p10_1_models import (DOWNLOAD_GB, FIXED_SMALL, OLLAMA_HOST, SMALL_SOURCE, SMALL_STOP, SMALL_TEMPLATE, TIERS,
                           apply, current, installed, is_installed, post, same_model)
 
@@ -133,57 +133,64 @@ class Signals(QObject):
     finished = pyqtSignal(str)              # 空字串＝成功，否則係錯誤
 
 
-class SetupDialog(QWidget):
+class SetupDialog(ThemedWindow):
     """第一次開機設定。on_done(讀字模型, 翻譯模型)：轉好模型之後叫，主程式用嚟通知譯鏡、熱身。"""
 
     def __init__(self, on_done=None):
-        super().__init__()
+        super().__init__("巴別塔之窗：第一次設定", 640, 600)
         self.on_done = on_done
-        self.setWindowTitle("巴別塔之窗：第一次設定")
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
-        self.resize(560, 460)
-        self.ollama = QLabel()
+        self.ollama = BodyLabel()
         self.ollama.setWordWrap(True)
-        self.ollama_button = QPushButton()
+        self.ollama_button = PushButton()
         self.ollama_button.clicked.connect(self._ollama_action)
         top = QHBoxLayout()
         top.addWidget(self.ollama, 1)
         top.addWidget(self.ollama_button)
-        self.gpu = QLabel()
-        self.eraser = QLabel()
+        self.gpu = BodyLabel()
+        self.eraser = CaptionLabel()
         self.eraser.setWordWrap(True)
         self.tiers = QButtonGroup(self)
         self.tier_buttons = {}
-        tier_box = QVBoxLayout()
+        self.tier_notes = {}
+        tier_box = SimpleCardWidget()
+        tier_column = QVBoxLayout(tier_box)
+        tier_column.setContentsMargins(16, 12, 16, 12)
+        tier_column.setSpacing(10)
         for name in TIERS:
-            button = QRadioButton()
+            button = RadioButton()
             button.toggled.connect(self._update_button)
             self.tiers.addButton(button)
             self.tier_buttons[name] = button
-            tier_box.addWidget(button)
-        self.bar = QProgressBar()
+            tier_column.addWidget(button)
+            # 說明另外一行：Fluent 單選掣得一行高，寫埋入去第二行會俾切走
+            self.tier_notes[name] = CaptionLabel(TIERS[name]["說明"])
+            self.tier_notes[name].setContentsMargins(30, 0, 0, 4)
+            tier_column.addWidget(self.tier_notes[name])
+        self.bar = ProgressBar()
         self.bar.setRange(0, 1000)
         self.bar.hide()
-        self.status = QLabel()
+        self.busy_bar = IndeterminateProgressBar()      # 唔知幾耐嘅步驟用跑馬燈（Fluent 進度條要分開兩個元件）
+        self.busy_bar.hide()
+        self.status = BodyLabel()
         self.status.setWordWrap(True)
-        self.go = QPushButton("下載並使用")
+        self.go = PrimaryPushButton("下載並使用")
         self.go.clicked.connect(self._start)
-        later = QPushButton("遲啲先")
+        later = PushButton("遲啲先")
         later.clicked.connect(self.close)
         buttons = QHBoxLayout()
         buttons.addStretch()
         buttons.addWidget(later)
         buttons.addWidget(self.go)
-        layout = QVBoxLayout(self)
-        layout.addLayout(top)
-        layout.addWidget(self.gpu)
-        layout.addWidget(QLabel("揀一檔（VRAM 已經計埋搵字、補圖模型）："))
-        layout.addLayout(tier_box)
-        layout.addWidget(self.eraser)
-        layout.addStretch()
-        layout.addWidget(self.bar)
-        layout.addWidget(self.status)
-        layout.addLayout(buttons)
+        self.body.addLayout(top)
+        self.body.addWidget(self.gpu)
+        self.body.addWidget(StrongBodyLabel("揀一檔（VRAM 已經計埋搵字、補圖模型）"))
+        self.body.addWidget(tier_box)
+        self.body.addWidget(self.eraser)
+        self.body.addStretch()
+        self.body.addWidget(self.bar)
+        self.body.addWidget(self.busy_bar)
+        self.body.addWidget(self.status)
+        self.body.addLayout(buttons)
         self.signals = Signals()
         self.signals.progress.connect(self._progress)
         self.signals.finished.connect(self._finished)
@@ -223,8 +230,7 @@ class SetupDialog(QWidget):
                 size = "｜✅ 已經有齊"
             tag = "（建議）" if tier_name == best else ""
             using = "（而家用緊）" if same_model(reading, tier["讀字"]) and same_model(translation, tier["翻譯"]) else ""
-            self.tier_buttons[tier_name].setText(
-                f"{tier_name}{tag}{using}：約 {tier['VRAM']} GB VRAM{size}\n    {tier['說明']}")
+            self.tier_buttons[tier_name].setText(f"{tier_name}{tag}{using}：約 {tier['VRAM']} GB VRAM{size}")
         # 剔住而家用緊嘅檔；未揀過先剔建議嗰檔。試過下載完剔返建議嘅「高」，
         # 用家再撳一下掣就由「中」轉返「高」，以為下載咗冇用
         # 未完成過設定：「而家用緊」只係程式預設（高），細卡用家唔應該見到佢剔咗
@@ -301,16 +307,16 @@ class SetupDialog(QWidget):
             self.signals.finished.emit(str(error))
 
     def _progress(self, part, text):
-        if part is None:
-            self.bar.setRange(0, 0)         # 唔知幾耐：跑馬燈
-        else:
-            self.bar.setRange(0, 1000)
+        self.bar.setVisible(part is not None)
+        self.busy_bar.setVisible(part is None)      # 唔知幾耐：跑馬燈
+        if part is not None:
             self.bar.setValue(int(part * 1000))
         self.status.setText(f"⏳ {text}")
 
     def _finished(self, error):
         self.busy = False
         self.bar.hide()
+        self.busy_bar.hide()
         for button in self.tier_buttons.values():
             button.setEnabled(True)
         if error:
@@ -332,14 +338,3 @@ def needs_setup():
         return True
     models = installed()
     return not all(is_installed(name, models) for name in current())
-
-
-def main():
-    app = QApplication(sys.argv)
-    dialog = SetupDialog(lambda reading, translation: print("用緊：", reading, translation))
-    dialog.open()
-    app.exec()
-
-
-if __name__ == "__main__":
-    main()

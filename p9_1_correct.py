@@ -1,80 +1,81 @@
-# 譯幕 第9期第1關：改譯文就記住
+# 巴別塔之窗：改譯文就記住（Fluent 元件）
 #
 # 做咩：歷史面板每句有「改」，撳落去開呢個細視窗，兩種改法：
-#   1. 改詞：「ヤワ → 軟弱」記入而家作品嘅名單（備註「手動改」），以後有呢個詞嘅句都跟（字幕條同譯鏡都係）
+#   1. 改詞：「ヤワ → 軟弱」記入而家作品嘅名單（備註「手動改」），以後有呢個詞嘅句都跟
 #   2. 改成句：以後見到一模一樣嘅原文，直接用你寫嘅譯文，唔問模型（口頭禪、重複嘅對白）
-#   兩樣都係改完即刻生效：名單檔一變，譯鏡翻譯快取都分開記，下次讀嗰頁就用新譯法。
-# 點用：main.py 將 open_correction 交俾歷史面板；直接行係示範：
-#   .venv\Scripts\python -W ignore p9_1_correct.py
-
-import sys
+#   兩樣都係改完即刻生效：名單檔一變，翻譯快取都分開記，下次讀嗰頁就用新譯法。
+# 點用：main.py 將 correction.open 交俾歷史面板。
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QApplication, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import QFormLayout, QHBoxLayout, QVBoxLayout
+from qfluentwidgets import (BodyLabel, CaptionLabel, LineEdit, PrimaryPushButton, PushButton, SimpleCardWidget,
+                            StrongBodyLabel)
 
 from p7_1_target import current
 from p8_5_names import memory
+from theme import ThemedWindow
 
 
-class CorrectionDialog(QWidget):
+def section(title):
+    """一張卡加標題：改詞、改成句各一張。回傳（卡, 入面嘅直排）。"""
+    box = SimpleCardWidget()
+    column = QVBoxLayout(box)
+    column.setContentsMargins(16, 12, 16, 14)
+    column.setSpacing(8)
+    column.addWidget(StrongBodyLabel(title))
+    return box, column
+
+
+class CorrectionDialog(ThemedWindow):
     """改一句譯文：上面睇原文同而家譯文，下面揀改詞定改成句。"""
 
     def __init__(self):
-        super().__init__()
-        self.setWindowTitle("巴別塔之窗：改譯文")
-        # 歷史面板同字幕條都係置頂嘅，呢個都要置頂，唔係會被遮住
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
-        self.resize(560, 360)
-
-        self.original = QLineEdit()
+        super().__init__("巴別塔之窗：改譯文", 600, 520)
+        self.original = LineEdit()
         self.original.setReadOnly(True)     # 唔俾改，但揀得字：揀咗就撳「用揀咗嘅字」
-        self.translation = QLabel()
+        self.translation = BodyLabel()
         self.translation.setWordWrap(True)
         self.translation.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.work = QLabel()
-        self.work.setStyleSheet("color: #777;")
+        self.work = CaptionLabel()
         top = QFormLayout()
-        top.addRow("原文", self.original)
-        top.addRow("而家譯文", self.translation)
+        top.addRow(BodyLabel("原文"), self.original)
+        top.addRow(BodyLabel("而家譯文"), self.translation)
         top.addRow("", self.work)
+        self.body.addLayout(top)
 
-        # ---- 改詞 ----
-        self.term = QLineEdit()
+        # ---------- 改詞 ----------
+        term_box, column = section("改詞（以後有呢個詞嘅句都跟）")
+        self.term = LineEdit()
         self.term.setPlaceholderText("原文入面嘅詞，例如 ヤワ")
-        pick = QPushButton("用揀咗嘅字")
+        pick = PushButton("用揀咗嘅字")
         pick.setToolTip("喺上面「原文」揀咗一截字，撳呢度就搬落嚟")
         pick.clicked.connect(lambda: self.term.setText(self.original.selectedText() or self.term.text()))
-        self.term_fix = QLineEdit()
+        row = QHBoxLayout()
+        row.addWidget(self.term, 1)
+        row.addWidget(pick)
+        column.addLayout(row)
+        self.term_fix = LineEdit()
         self.term_fix.setPlaceholderText("正確譯法，例如 軟弱")
-        save_term = QPushButton("記低呢個詞")
+        column.addWidget(self.term_fix)
+        save_term = PrimaryPushButton("記低呢個詞")
         save_term.clicked.connect(self._save_term)
-        term_row = QHBoxLayout()
-        term_row.addWidget(self.term, 1)
-        term_row.addWidget(pick)
-        term_box = QGroupBox("改詞（以後有呢個詞嘅句都跟）")
-        term_form = QFormLayout(term_box)
-        term_form.addRow("原文詞", term_row)
-        term_form.addRow("譯法", self.term_fix)
-        term_form.addRow(save_term)
+        column.addWidget(save_term, alignment=Qt.AlignmentFlag.AlignRight)
+        self.body.addWidget(term_box)
 
-        # ---- 改成句 ----
-        self.sentence_fix = QLineEdit()
-        save_sentence = QPushButton("記低成句")
+        # ---------- 改成句 ----------
+        sentence_box, column = section("改成句（以後一模一樣嘅原文直接用呢個譯文）")
+        self.sentence_fix = LineEdit()
+        self.sentence_fix.setPlaceholderText("正確譯文")
+        column.addWidget(self.sentence_fix)
+        save_sentence = PrimaryPushButton("記低成句")
         save_sentence.clicked.connect(self._save_sentence)
-        sentence_box = QGroupBox("改成句（以後一模一樣嘅原文直接用呢個譯文）")
-        sentence_form = QFormLayout(sentence_box)
-        sentence_form.addRow("正確譯文", self.sentence_fix)
-        sentence_form.addRow(save_sentence)
+        column.addWidget(save_sentence, alignment=Qt.AlignmentFlag.AlignRight)
+        self.body.addWidget(sentence_box)
 
-        self.status = QLabel()
+        self.status = BodyLabel()
         self.status.setWordWrap(True)
-        layout = QVBoxLayout(self)
-        layout.addLayout(top)
-        layout.addWidget(term_box)
-        layout.addWidget(sentence_box)
-        layout.addWidget(self.status)
-        layout.addStretch()
+        self.body.addWidget(self.status)
+        self.body.addStretch()
 
     def open(self, entry):
         """entry：歷史紀錄嘅一句（original、translation）。"""
@@ -110,15 +111,3 @@ class CorrectionDialog(QWidget):
         memory().set_sentence(self.entry["original"], fix, current().key)
         self.status.setText("✅ 記低咗：以後見到呢句原文就用呢個譯文")
         print(f"改成句：{self.entry['original']} → {fix}（作品 {memory().work}）")
-
-
-def main():
-    """示範：開一句假紀錄俾你改（會真係寫入而家作品嘅名單）。"""
-    app = QApplication(sys.argv)
-    dialog = CorrectionDialog()
-    dialog.open({"original": "中身は案外ヤワじゃないか", "translation": "裡面其實意外地不那麼雅瓦吧？"})
-    app.exec()
-
-
-if __name__ == "__main__":
-    main()

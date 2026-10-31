@@ -78,11 +78,6 @@ def to_download(tier, models):
     return wanted
 
 
-def eraser_ready():
-    """搵字、補圖模型檔喺唔喺度：冇嘅話譯鏡照用得，但係淨係用色塊蓋字，唔會抹字補圖。"""
-    return FINDER_MODEL.exists() and LAMA_MODEL.exists()
-
-
 def eraser_missing():
     return [entry for entry in ERASER_FILES if not entry[0].exists()]
 

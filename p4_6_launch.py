@@ -29,8 +29,7 @@ SHORTCUT_NAME = "巴別塔之窗.lnk"
 
 # 狀態字開頭嘅符號就係嚴重程度：出錯 > 等緊 > 正常（工作列圖示用嚟揀顏色）
 ERROR, WAITING, NORMAL = 2, 1, 0
-LEVEL_COLORS = {NORMAL: "#f5c518", WAITING: "#9e9e9e", ERROR: "#e53935"}     # 黃、灰、紅
-LEVEL_NAMES = {NORMAL: "正常", WAITING: "等緊", ERROR: "出錯"}
+LEVEL_COLORS = {NORMAL: "#4fc3f7", WAITING: "#9e9e9e", ERROR: "#e53935"}     # 藍、灰、紅：圖示頂個對白框嘅光
 
 
 def level_of(text):
@@ -136,7 +135,7 @@ def make_icon_file():
 
     from PyQt6.QtCore import QBuffer, QIODevice
     from PyQt6.QtGui import QGuiApplication
-    from p3_1_subtitle_bar import make_icon
+    from ui_parts import make_icon
     app = QGuiApplication.instance() or QGuiApplication(sys.argv)  # noqa: F841 —— 畫字要有 Qt 程式
     images = []
     for size in ICON_SIZES:

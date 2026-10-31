@@ -15,7 +15,7 @@ from PyQt6.QtGui import QColor, QPainter, QPen
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFormLayout, QGridLayout, QHBoxLayout, QInputDialog,
                              QLabel, QPushButton, QSpinBox, QTabWidget, QVBoxLayout, QWidget)
 
-from p3_1_subtitle_bar import CHINESE_FONTS, make_font
+from ui_parts import CHINESE_FONTS, make_font
 from p4_6_launch import keep_days, load_settings, save_setting
 from p7_1_target import TARGETS, current, set_current
 from p8_5_names import memory
@@ -26,8 +26,8 @@ from p10_1_models import current as current_models
 ROOT = Path(__file__).resolve().parent
 PREVIEW_TEXT = "這究竟是什麼？"
 # 熱鍵頁顯示嘅講法（settings.json「熱鍵」用嘅名 → 做咩）
-HOTKEY_LABELS = {"歷史": "歷史面板", "清空上下文": "清空翻譯上下文", "譯鏡調整": "調整譯鏡", "譯鏡讀字": "譯鏡讀字翻譯",
-                 "譯鏡自動": "譯鏡自動模式", "譯鏡原文": "譯鏡按住睇原文"}
+HOTKEY_LABELS = {"歷史": "歷史面板", "清空上下文": "清空翻譯上下文", "譯鏡調整": "調整窗", "譯鏡讀字": "讀字翻譯",
+                 "譯鏡自動": "自動模式", "譯鏡原文": "按住睇原文"}
 # 錄新組合時認得嘅鍵：字母、數字、F1 至 F24（同 p3_3_hotkeys.parse 認得嘅一樣）
 KEY_NAMES = {**{getattr(Qt.Key, f"Key_{c}"): c for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"},
              **{getattr(Qt.Key, f"Key_F{n}"): f"F{n}" for n in range(1, 25)}}
@@ -76,7 +76,7 @@ class SettingsDialog(QWidget):
         # 塊鏡係置頂嘅，呢個視窗都要置頂，唔係會被遮住
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._lens_page(), "譯鏡")
+        self.tabs.addTab(self._lens_page(), "窗")
         self.tabs.addTab(self._translate_page(), "翻譯")
         self.tabs.addTab(self._models_page(), "模型")
         self.tabs.addTab(self._general_page(), "一般")
@@ -91,8 +91,8 @@ class SettingsDialog(QWidget):
         layout.addWidget(note)
 
     # ---------- 打開 ----------
-    def open(self, page="譯鏡"):
-        """打開去某一頁（「譯鏡」「翻譯」「模型」「一般」「熱鍵」）。"""
+    def open(self, page="窗"):
+        """打開去某一頁（「窗」「翻譯」「模型」「一般」「熱鍵」）。"""
         for i in range(self.tabs.count()):
             if self.tabs.tabText(i) == page:
                 self.tabs.setCurrentIndex(i)
@@ -145,9 +145,9 @@ class SettingsDialog(QWidget):
         layout = QHBoxLayout(page)
         form = QFormLayout()
         if "set_lens_visible" in self.hooks:
-            self.lens_visible = QCheckBox("顯示譯鏡")
+            self.lens_visible = QCheckBox("顯示窗")
             self.lens_visible.toggled.connect(self.hooks["set_lens_visible"])
-            form.addRow("塊鏡", self.lens_visible)
+            form.addRow("窗", self.lens_visible)
         self.lens_font = QComboBox()
         self.lens_font.addItems(available())
         self.lens_font.currentTextChanged.connect(self._lens_font_changed)
@@ -360,8 +360,8 @@ class SettingsDialog(QWidget):
         form.addRow("紀錄保留（下次開機清）", self.keep)
         logs = QPushButton("開紀錄資料夾")
         logs.clicked.connect(lambda: open_folder(ROOT / "logs"))
-        shots = QPushButton("開譯鏡截圖資料夾")
-        shots.clicked.connect(lambda: open_folder(ROOT / "譯鏡截圖"))
+        shots = QPushButton("開截圖資料夾")
+        shots.clicked.connect(lambda: open_folder(ROOT / "screenshots"))
         row = QWidget()
         line = QHBoxLayout(row)
         line.setContentsMargins(0, 0, 0, 0)

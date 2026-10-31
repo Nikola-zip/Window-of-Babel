@@ -16,13 +16,12 @@ from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from p2_1_translate import check_ollama, current_model, unload_model, warm_up
 from p2_3_glossary import GLOSSARY, load_glossary
-from p3_1_subtitle_bar import HoldButton, make_icon
+from ui_parts import HoldButton, make_icon
 from p3_3_hotkeys import GlobalHotkeys, load_hotkeys, while_held
 from p3_4_history import HistoryPanel, SubtitleLog
 from p4_4_context import HKTranslator
-from p4_6_launch import clean_old_logs, ensure_ollama, keep_days, load_settings, quiet_console, save_setting, \
-    single_instance
-from p6_1_glass import GLASS_COLOR
+from p4_6_launch import (LEVEL_COLORS, clean_old_logs, ensure_ollama, keep_days, level_of, load_settings,
+                         quiet_console, save_setting, single_instance)
 from p6_2_read import vision_model
 from p6_3_lens import Lens
 from p7_1_target import current, target_menu
@@ -82,9 +81,9 @@ def main():
     correction = CorrectionDialog()     # 歷史面板每句「改」
     panel = HistoryPanel(log, on_fix=correction.open)
     lens = Lens(HKTranslator(glossary, names=memory()),
-                on_translated=lambda lang, original, translation: log.add("譯鏡", lang, original, translation))
+                on_translated=lambda lang, original, translation: log.add("窗", lang, original, translation))
 
-    tray = QSystemTrayIcon(make_icon(GLASS_COLOR.name()), qt)
+    tray = QSystemTrayIcon(make_icon(), qt)
     tray.setToolTip(APP_NAME)
     tray_menu = QMenu()
     lens_menu = QMenu()
@@ -172,7 +171,7 @@ def main():
              "hotkeys": keys}       # 熱鍵頁：改綁即刻生效（GlobalHotkeys.rebind）
     settings_window = {}
 
-    def open_settings(page="譯鏡"):
+    def open_settings(page="窗"):
         # 第一次撳先開；要留住參照，唔係 Python 回收咗個視窗就即刻消失
         if "dialog" not in settings_window:
             settings_window["dialog"] = SettingsDialog(lens, hooks)
@@ -227,7 +226,13 @@ def main():
     print(f"模型：讀字 {vision_model()}｜翻譯 {current_model()}")
 
     bridge = Bridge()
-    bridge.status.connect(lambda text: lens._flash(text, 4) if text else lens._set_status(""))
+
+    def show_status(text):
+        lens._flash(text, 4) if text else lens._set_status("")
+        # 圖示頂個對白框就係狀態燈：等緊變灰、出錯變紅，收埋個窗都一眼知道
+        tray.setIcon(make_icon(LEVEL_COLORS[level_of(text)]))
+
+    bridge.status.connect(show_status)
     bridge.need_setup.connect(setup.open)
     tray.showMessage(APP_NAME, f"開咗：撳 {names['譯鏡讀字']} 或者 🔍 讀字翻譯；右撳工具列圖示有選單",
                      QSystemTrayIcon.MessageIcon.Information, 5000)

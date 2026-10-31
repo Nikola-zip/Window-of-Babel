@@ -9,7 +9,7 @@ from ctypes import wintypes
 
 from PyQt6.QtCore import QAbstractNativeEventFilter, QTimer
 
-from p3_1_subtitle_bar import load_settings, save_settings
+from ui_parts import load_settings, save_settings
 
 # use_last_error：登記失敗時攞到 Windows 嘅錯誤代碼，知道係咪俾人霸咗
 user32 = ctypes.WinDLL("user32", use_last_error=True)

@@ -16,7 +16,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QHBoxLayout, QPushButton, QTextBrowser, QVBoxLayout, QWidget
 
-from p3_1_subtitle_bar import CHINESE_FONTS, load_settings, make_font, save_settings
+from ui_parts import CHINESE_FONTS, load_settings, make_font, save_settings
 
 LOG_DIR = Path("logs")
 # 規格寫 50 句，但睇片每分鐘大約 12 句，50 句得返 4 分鐘左右；
@@ -87,7 +87,7 @@ class HistoryPanel(QWidget):
         super().__init__()
         self.log = log
         self.on_fix = on_fix    # 有就每句加「改」連結（第 9 期：改譯文就記住），撳落去叫 on_fix(嗰句)
-        self.setWindowTitle("譯幕：歷史")
+        self.setWindowTitle("巴別塔之窗：歷史")
         # 字幕條係置頂嘅，呢個面板都要置頂，唔係會被遮住
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
         self.resize(640, 720)

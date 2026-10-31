@@ -6,13 +6,10 @@
 # 點用：先開 Ollama，再喺終端機打：.venv\Scripts\python -W ignore p6_3_lens.py
 #       Ctrl+Alt+G 調整塊鏡，Ctrl+Alt+T 讀字翻譯；main.py 會 import 呢度嘅 Lens。
 
-import argparse
 import functools
 import os
 import re
-import signal
 import statistics
-import sys
 import threading
 import time
 from pathlib import Path
@@ -22,26 +19,23 @@ from scipy import ndimage
 
 from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QColor, QFontMetricsF, QImage, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from PyQt6.QtWidgets import QApplication
 
-from p2_1_translate import ask, warm_up
-from p2_3_glossary import GLOSSARY, load_glossary
-from p3_1_subtitle_bar import CHINESE_FONTS, make_font, make_icon
-from p3_3_hotkeys import GlobalHotkeys, load_hotkeys
-from p4_4_context import HKTranslator, hk_characters
+from p2_1_translate import ask
+from ui_parts import CHINESE_FONTS, make_font
+from p4_4_context import hk_characters
 from p4_6_launch import load_settings, save_setting
-from p6_1_glass import GLASS_COLOR, Glass
+from p6_1_glass import Glass
 from p6_2_read import clean_text, grab, read_crop, read_marked, read_text, to_png
 from p6_4_auto import EMPTY, ReadingCache, TranslationCache, fingerprint
-from p7_1_target import current, sound_prompt, target_menu
-from p8_5_names import memory, works_menu
-from p8_6_fonts import chosen, font_menu, has_bold, supports
+from p7_1_target import current, sound_prompt
+from p8_6_fonts import chosen, has_bold, supports
 from p6_5_inpaint import (estimate_chars, keep_lines, TEXT_PROB, TextEraser, hole_for, intersection, overlaps, owned_boxes, page_shift, pair_leftovers,
                           text_box_of, to_array, to_image)
 
 WATCH_EVERY = 500       # 每幾多毫秒睇一次玻璃底下有冇變
 # 第 7 期第 2 關：存「蓋咗字」嘅圖。塊鏡設咗唔俾截圖（WDA_EXCLUDEFROMCAPTURE），普通截圖影唔到譯文，要自己砌
-SHOT_DIR = Path(__file__).resolve().parent / "譯鏡截圖"
+SHOT_DIR = Path(__file__).resolve().parent / "screenshots"
 # 自動模式：畫面停定先讀，捲緊條漫唔好讀半頁。前後兩次縮圖差唔多過 STILL，連續 STILL_TICKS 次（約 1 秒）先當停定
 STILL = 2
 STILL_TICKS = 2
@@ -1632,7 +1626,7 @@ class Lens(Glass):
         paint_blocks(p, self.blocks, self.width(), self.height())
         p.end()
         SHOT_DIR.mkdir(exist_ok=True)
-        path = SHOT_DIR / f"譯鏡_{time.strftime('%Y%m%d_%H%M%S')}.png"
+        path = SHOT_DIR / f"window_of_babel_{time.strftime('%Y%m%d_%H%M%S')}.png"
         if not shot.save(str(path)):
             self._flash("⚠️ 存唔到截圖")
             return
@@ -1711,53 +1705,3 @@ class Lens(Glass):
             p.setPen(QColor("#ffd54a"))
             p.setFont(make_font(CHINESE_FONTS, 10, bold=True))
             p.drawText(box, Qt.AlignmentFlag.AlignCenter, self.status)
-
-
-def main():
-    parser = argparse.ArgumentParser(description="譯鏡示範")
-    parser.add_argument("--debug-dir", help="每讀完一頁，存一張對比圖去呢個資料夾（除錯用）")
-    args = parser.parse_args()
-    app = QApplication(sys.argv)
-    signal.signal(signal.SIGINT, lambda *_: app.quit())
-    wake = QTimer()
-    wake.timeout.connect(lambda: None)
-    wake.start(200)
-    app.setQuitOnLastWindowClosed(False)
-
-    print(f"載入翻譯模型：{warm_up():.1f} 秒")
-    glossary = load_glossary(GLOSSARY) if GLOSSARY.exists() else []
-    lens = Lens(HKTranslator(glossary, names=memory()), debug_dir=args.debug_dir)
-    lens.show()
-    names = load_hotkeys()
-    keys = GlobalHotkeys(app)
-    for name, action in (("譯鏡調整", lens.toggle_adjusting), ("譯鏡讀字", lens.read), ("譯鏡自動", lens.toggle_auto)):
-        problem = keys.register(names[name], action)
-        print(f"熱鍵 {names[name]}（{name}）：{'OK' if problem is None else '登記唔到：' + problem}")
-
-    tray = QSystemTrayIcon(make_icon(GLASS_COLOR.name()), app)
-    tray.setToolTip(f"譯鏡示範｜{names['譯鏡讀字']} 讀字翻譯")
-    menu = QMenu()
-    for text, action in ((f"讀字翻譯（{names['譯鏡讀字']}）", lens.read), ("收起譯文", lens.clear),
-                         (f"調整譯鏡（{names['譯鏡調整']}）", lens.toggle_adjusting), ("閂示範", app.quit)):
-        item = QAction(text, menu)
-        item.triggered.connect(action)
-        menu.addAction(item)
-    for text, action in (("存截圖", lens.save_shot), ("開截圖資料夾", lens.open_shots)):
-        item = QAction(text, menu)
-        item.triggered.connect(action)
-        menu.insertAction(menu.actions()[-1], item)
-    menu.insertMenu(menu.actions()[-1], target_menu(lens.target_changed, menu))     # 擺喺「閂示範」上面
-    menu.insertMenu(menu.actions()[-1], works_menu(lens.work_changed, menu))
-    menu.insertMenu(menu.actions()[-1], font_menu("譯鏡", lens.font_changed, menu))
-    menu.insertAction(menu.actions()[-1], lens.auto_action(menu))
-    menu.insertAction(menu.actions()[-1], lens.sound_effects_action(menu))
-    tray.setContextMenu(menu)
-    tray.show()
-    lens.add_toolbar(extra=[("🔍", f"讀字翻譯（{names['譯鏡讀字']}）", lens.read),
-                            ("📷", "存蓋咗字嘅截圖（順手複製）", lens.save_shot)], menu=menu)
-    print(f"示範開咗：將塊鏡放喺漫畫上面，撳 {names['譯鏡讀字']} 或者 🔍")
-    app.exec()
-
-
-if __name__ == "__main__":
-    main()

@@ -22,7 +22,7 @@ import urllib.request
 from p2_1_translate import ask
 from p7_1_target import CONTEXT, current
 
-USER_AGENT = "yimu-translator/0.1 (hobby project; personal use)"     # 維基要求寫清楚係乜程式
+USER_AGENT = "window-of-babel/0.1 (hobby project)"     # 維基要求寫清楚係乜程式
 TIMEOUT = 20
 WIKIS = {"繁體中文": ("zh", "zh-hk"), "English": ("en", None), "한국어": ("ko", None), "日本語": ("ja", None)}
 NEW_MAX = 20            # 新發現嘅詞最多幾多個字先列：再長嘅多數係作品標題、句子
@@ -357,7 +357,7 @@ def lookup_dialog():
 
         def __init__(self):
             super().__init__()
-            self.setWindowTitle("譯幕：網上搵譯名")
+            self.setWindowTitle("巴別塔之窗：網上搵譯名")
             self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
             self.resize(860, 760)
             self.query = QLineEdit()

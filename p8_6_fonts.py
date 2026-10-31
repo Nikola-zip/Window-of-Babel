@@ -5,7 +5,7 @@
 #   唔使裝落 Windows：jf open 粉圓 2.1、霞鶩文楷 TC 中粗（v1.522）、芫荽 v1.020。
 #   揀咗嘅字型排第一，後面照接「譯做」語言嘅字型同正黑體做後備：
 #   字型冇嗰隻字（例如粉圓冇韓文）Qt 會自動用下一隻。
-# 點用：p3_1_subtitle_bar.py、p6_3_lens.py 會用 chosen()；直接行係自我測試：
+# 點用：ui_parts.py、p6_3_lens.py 會用 chosen()；直接行係自我測試：
 #   .venv\Scripts\python -W ignore p8_6_fonts.py
 
 from pathlib import Path
@@ -89,36 +89,6 @@ def supports(family, char):
         load_fonts()
         _raw[family] = QRawFont.fromFont(QFont(family, 20))
     return _raw[family].supportsCharacter(ord(char))
-
-
-def font_menu(kind, on_change, parent=None):
-    """「譯文字型」子選單（單選）：揀咗就存檔，再叫 on_change(名)。"""
-    from PyQt6.QtGui import QAction, QActionGroup
-    from PyQt6.QtWidgets import QMenu
-    menu = QMenu("譯文字型" if kind == "譯鏡" else "字幕字型", parent)
-    group = QActionGroup(menu)
-    group.setExclusive(True)
-
-    def choose(name):
-        set_chosen(kind, name)
-        on_change(name)
-
-    for name in available():
-        item = QAction(name, menu)
-        item.setCheckable(True)
-        item.triggered.connect(lambda _=False, name=name: choose(name))
-        group.addAction(item)
-        menu.addAction(item)
-
-    def sync():
-        chosen(kind)
-        current = _choice[kind]
-        for item in group.actions():
-            item.setChecked(item.text() == current)
-    menu.aboutToShow.connect(sync)
-    sync()
-    menu.group = group      # 要留住參照
-    return menu
 
 
 def main():

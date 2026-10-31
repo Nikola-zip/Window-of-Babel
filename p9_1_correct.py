@@ -22,7 +22,7 @@ class CorrectionDialog(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("譯幕：改譯文")
+        self.setWindowTitle("巴別塔之窗：改譯文")
         # 歷史面板同字幕條都係置頂嘅，呢個都要置頂，唔係會被遮住
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
         self.resize(560, 360)
@@ -99,7 +99,7 @@ class CorrectionDialog(QWidget):
             self.status.setText(f"⚠️ 原文入面搵唔到「{term}」")
             return
         memory().set_term(term, fix, current().key)
-        self.status.setText(f"✅ 記低咗：{term} → {fix}。之後嘅句會跟（譯鏡要再讀一次嗰頁）")
+        self.status.setText(f"✅ 記低咗：{term} → {fix}。之後嘅句會跟（窗要再讀一次嗰頁）")
         print(f"改詞：{term} → {fix}（作品 {memory().work}）")
 
     def _save_sentence(self):

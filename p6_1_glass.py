@@ -8,16 +8,12 @@
 #       第 2、3 關會 import 呢度嘅 Glass。
 
 import ctypes
-import signal
-import sys
 
-from PyQt6.QtCore import QPointF, QRect, QRectF, Qt, QTimer
-from PyQt6.QtGui import QAction, QColor, QPainter, QPen
-from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QWidget
+from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
+from PyQt6.QtGui import QColor, QPainter, QPen
+from PyQt6.QtWidgets import QApplication, QWidget
 
-from p3_1_subtitle_bar import (CHINESE_FONTS, CORNER_IDLE, IconButton, Toolbar, load_settings, make_font, make_icon,
-                               save_settings)
-from p3_3_hotkeys import GlobalHotkeys, load_hotkeys
+from ui_parts import CHINESE_FONTS, CORNER_IDLE, IconButton, Toolbar, load_settings, make_font, save_settings
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 WDA_EXCLUDEFROMCAPTURE = 0x11   # Windows 10 2004 之後：截圖、錄影都當呢個視窗唔存在
@@ -117,12 +113,12 @@ class Glass(QWidget):
         遊戲入面熱鍵唔一定得（例如 LoL），有掣撳就唔受影響。extra 係 [(符號, 提示, 功能)]，
         或者整好咗嘅掣（例如按住型嘅 HoldButton）。
         """
-        self.move_button = IconButton("✥", "調整譯鏡：搬位、改大細（再撳一下完成）", lambda _: self.toggle_adjusting())
+        self.move_button = IconButton("✥", "調整窗：搬位、改大細（再撳一下完成）", lambda _: self.toggle_adjusting())
         buttons = [self.move_button]
         buttons += [item if isinstance(item, IconButton) else
                     IconButton(item[0], item[1], lambda _, action=item[2]: action()) for item in extra]
         if menu is not None:
-            buttons.append(IconButton("⚙", "譯鏡選單", menu.exec))
+            buttons.append(IconButton("⚙", "選單", menu.exec))
         self.toolbar = Toolbar(buttons)
         wheel = getattr(self, "toolbar_wheel", None)
         if wheel is not None:
@@ -198,7 +194,7 @@ class Glass(QWidget):
             "h": g.height() / area.height(),
         }
         save_settings(settings)
-        print(f"譯鏡位置記住咗：{screen.name()} {g.width()}×{g.height()}")
+        print(f"窗位置記住咗：{screen.name()} {g.width()}×{g.height()}")
 
     # ---------- 調整模式 ----------
     def set_adjusting(self, on):
@@ -316,38 +312,3 @@ class Glass(QWidget):
             for ax, ay, dx, dy in [(x0, y0, 1, 1), (x1, y0, -1, 1), (x0, y1, 1, -1), (x1, y1, -1, -1)]:
                 p.drawLine(QPointF(ax, ay), QPointF(ax + dx * n, ay))
                 p.drawLine(QPointF(ax, ay), QPointF(ax, ay + dy * n))
-
-
-def main():
-    app = QApplication(sys.argv)
-    signal.signal(signal.SIGINT, lambda *_: app.quit())
-    wake = QTimer()
-    wake.timeout.connect(lambda: None)
-    wake.start(200)
-    app.setQuitOnLastWindowClosed(False)
-
-    glass = Glass()
-    glass.show()
-    print(f"唔俾截圖：{'OK' if glass.captured_ok else '設定唔到（Windows 太舊？）'}")
-
-    hotkey = load_hotkeys()["譯鏡調整"]
-    keys = GlobalHotkeys(app)
-    problem = keys.register(hotkey, glass.toggle_adjusting)
-    print(f"熱鍵 {hotkey}（譯鏡調整）：{'OK' if problem is None else '登記唔到：' + problem}")
-
-    tray = QSystemTrayIcon(make_icon(GLASS_COLOR.name()), app)
-    tray.setToolTip(f"譯鏡示範｜{hotkey} 調整")
-    menu = QMenu()
-    for text, action in ((f"調整譯鏡（{hotkey}）", glass.toggle_adjusting), ("閂示範", app.quit)):
-        item = QAction(text, menu)
-        item.triggered.connect(action)
-        menu.addAction(item)
-    tray.setContextMenu(menu)
-    tray.show()
-    glass.add_toolbar(menu=menu)
-    print("示範開咗：撳熱鍵入調整模式，雙擊或者右撳完成；Ctrl+C 或者工作列圖示閂")
-    app.exec()
-
-
-if __name__ == "__main__":
-    main()

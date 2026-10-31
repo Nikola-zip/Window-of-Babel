@@ -9,21 +9,13 @@
 import base64
 import json
 import re
-import signal
-import sys
-import threading
-import time
 import urllib.error
 import urllib.request
 
-from PyQt6.QtCore import QBuffer, QIODevice, QObject, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QColor, QFont, QImage, QPainter, QPen
-from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from PyQt6.QtCore import QBuffer, QIODevice, QRectF, Qt
+from PyQt6.QtGui import QColor, QFont, QImage, QPainter, QPen
 
 from p2_1_translate import OLLAMA
-from p3_1_subtitle_bar import CHINESE_FONTS, make_font, make_icon
-from p3_3_hotkeys import GlobalHotkeys, load_hotkeys
-from p6_1_glass import GLASS_COLOR, Glass
 
 VISION_MODEL = "qwen3-vl:8b-instruct"   # instruct：唔會先長篇思考，答得快；冇揀過時嘅預設
 _chosen = None      # 用家揀咗嘅讀字模型（settings.json「讀字模型」）；第一次用先讀設定，之後記住
@@ -87,11 +79,6 @@ def to_png(image):
     buffer.open(QIODevice.OpenModeFlag.WriteOnly)
     image.save(buffer, "PNG")
     return bytes(buffer.data())
-
-
-def capture(widget):
-    """截 widget 底下嘅畫面，回傳 PNG bytes（第 2 關示範用）。"""
-    return to_png(grab(widget))
 
 
 def vision_model():
@@ -415,119 +402,3 @@ def merge_same_bubble(blocks, threshold=SAME_BUBBLE):
     return merged
 
 
-class Reader(QObject):
-    """讀字喺背景線做（要幾秒），讀完經 signal 交返主線畫框；背景線唔可以郁畫面。"""
-    done = pyqtSignal(list, float)
-    failed = pyqtSignal(str)
-
-    def read(self, png):
-        def work():
-            start = time.perf_counter()
-            try:
-                self.done.emit(read_text(png), time.perf_counter() - start)
-            except (OSError, ValueError, KeyError) as error:
-                self.failed.emit(str(error))
-        threading.Thread(target=work, daemon=True).start()
-
-
-class ReadingGlass(Glass):
-    """會讀字嘅玻璃：讀到嘅每段字喺原位畫框同編號（第 3 關會改做蓋字寫譯文）。"""
-
-    def __init__(self):
-        super().__init__()
-        self.blocks = []
-        self.status = ""
-        self.reader = Reader()
-        self.reader.done.connect(self._show)
-        self.reader.failed.connect(lambda e: self._set_status(f"⚠️ 讀唔到：{e}"))
-
-    def read(self):
-        if self.adjusting:
-            self.set_adjusting(False)   # 調整緊就先完成，費事截到把手
-        self.blocks = []
-        self._set_status("⏳ 讀緊字……")
-        # 先等畫面重畫咗（清走舊框）先截：雖然玻璃唔會被截到，都費事截到半畫面
-        QTimer.singleShot(50, lambda: self.reader.read(capture(self)))
-
-    def _show(self, blocks, seconds):
-        self.blocks = blocks
-        self._set_status(f"讀到 {len(blocks)} 段（{seconds:.1f} 秒）")
-        QTimer.singleShot(3000, lambda: self._set_status(""))
-        print(f"\n讀到 {len(blocks)} 段，用咗 {seconds:.1f} 秒：")
-        for i, block in enumerate(blocks, start=1):
-            x1, y1, x2, y2 = block["box"]
-            print(f"  {i}. [{block['lang']}] {block['text']}　（位置 {x1:.2f},{y1:.2f} → {x2:.2f},{y2:.2f}）")
-
-    def _set_status(self, text):
-        self.status = text
-        if text.startswith("⚠"):
-            print(text)
-        self.update()
-
-    def moveEvent(self, event):
-        super().moveEvent(event)    # 工具列跟住
-        self.blocks = []    # 塊鏡郁咗，舊框已經對唔上
-        self.update()
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.blocks = []
-        self.update()
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setFont(make_font(CHINESE_FONTS, 10, bold=True))
-        w, h = self.width(), self.height()
-        for i, block in enumerate(self.blocks, start=1):
-            x1, y1, x2, y2 = block["box"]
-            rect = QRectF(x1 * w, y1 * h, (x2 - x1) * w, (y2 - y1) * h)
-            p.setPen(QPen(QColor("#ff4081"), 2))    # 粉紅：喺黑白漫畫上面最易見
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawRect(rect)
-            tag = QRectF(rect.left(), rect.top() - 16, 22, 16)
-            p.fillRect(tag, QColor("#ff4081"))
-            p.setPen(QColor("white"))
-            p.drawText(tag, Qt.AlignmentFlag.AlignCenter, str(i))
-        if self.status:
-            box = QRectF(0, 0, w, 24)
-            p.fillRect(box, QColor(0, 0, 0, 180))
-            p.setPen(QColor("#ffd54a"))
-            p.drawText(box, Qt.AlignmentFlag.AlignCenter, self.status)
-
-
-def main():
-    app = QApplication(sys.argv)
-    signal.signal(signal.SIGINT, lambda *_: app.quit())
-    wake = QTimer()
-    wake.timeout.connect(lambda: None)
-    wake.start(200)
-    app.setQuitOnLastWindowClosed(False)
-
-    glass = ReadingGlass()
-    glass.show()
-    names = load_hotkeys()
-    keys = GlobalHotkeys(app)
-    for name, action in (("譯鏡調整", glass.toggle_adjusting), ("譯鏡讀字", glass.read)):
-        problem = keys.register(names[name], action)
-        print(f"熱鍵 {names[name]}（{name}）：{'OK' if problem is None else '登記唔到：' + problem}")
-
-    tray = QSystemTrayIcon(make_icon(GLASS_COLOR.name()), app)
-    tray.setToolTip(f"譯鏡讀字示範｜{names['譯鏡讀字']} 讀字")
-    menu = QMenu()
-    for text, action in ((f"讀字（{names['譯鏡讀字']}）", glass.read),
-                         (f"調整譯鏡（{names['譯鏡調整']}）", glass.toggle_adjusting), ("閂示範", app.quit)):
-        item = QAction(text, menu)
-        item.triggered.connect(action)
-        menu.addAction(item)
-    tray.setContextMenu(menu)
-    tray.show()
-    # 角落工具列：遊戲入面熱鍵未必得，有掣撳就穩陣
-    glass.add_toolbar(extra=[("🔍", f"讀字（{names['譯鏡讀字']}）", glass.read)], menu=menu)
-    print(f"示範開咗：將塊鏡放喺有字嘅位，撳 {names['譯鏡讀字']} 讀字")
-    app.exec()
-
-
-if __name__ == "__main__":
-    main()

@@ -16,7 +16,7 @@ from qfluentwidgets import (BodyLabel, CaptionLabel, ComboBox, FluentIcon, Fluen
                             SingleDirectionScrollArea, SpinBox, SubtitleLabel, SwitchButton, TitleLabel)
 
 import theme
-from p4_6_launch import keep_days, load_settings, save_setting
+from p4_6_launch import keep_days, load_settings, make_shortcut, save_setting
 from p7_1_target import TARGETS, current, set_current
 from p8_5_names import memory
 from p8_6_fonts import available, chosen, chosen_name, has_bold, set_chosen, supports
@@ -422,8 +422,17 @@ class SettingsDialog(FluentWindow):
         shots = PushButton("開截圖資料夾")
         shots.clicked.connect(lambda: open_folder(ROOT / "screenshots"))
         card(group, FluentIcon.FOLDER, "資料夾", "翻譯紀錄同 📷 存低嘅截圖", logs, shots)
+        shortcut = PushButton("建立桌面捷徑")
+        shortcut.clicked.connect(self._make_shortcut)
+        self.shortcut_card = card(group, FluentIcon.PIN, "桌面捷徑", "撳一下就開，唔使開 terminal", shortcut)
         page.finish()
         return page
+
+    def _make_shortcut(self):
+        try:
+            self.shortcut_card.setContent(f"✅ 整好咗：{make_shortcut()}")
+        except (OSError, subprocess.SubprocessError) as error:
+            self.shortcut_card.setContent(f"⚠️ 整唔到：{error}")
 
     # ---------- 熱鍵 ----------
     def _hotkey_page(self):

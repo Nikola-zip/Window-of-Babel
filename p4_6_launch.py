@@ -7,6 +7,7 @@
 
 import ctypes
 import json
+import os
 import subprocess
 import sys
 import time
@@ -155,22 +156,36 @@ def make_icon_file():
     return ICON
 
 
+# 用 Windows 自帶嘅 PowerShell 整捷徑，唔使為咗一個捷徑多裝 comtypes。
+# 用 Windows 問桌面喺邊：有啲人個桌面俾 OneDrive 搬咗去第二度。
+# WorkingDirectory 一定要設：程式用相對路徑搵 settings.json、logs、glossaries、models。
+# 路徑經環境變數傳入：有中文、空格都唔使理引號；結果用 UTF-8 印返出嚟，桌面路徑有中文都讀得返
+SHORTCUT_SCRIPT = """
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$desktop = [Environment]::GetFolderPath('Desktop')
+$path = Join-Path $desktop $env:WOB_NAME
+$link = (New-Object -ComObject WScript.Shell).CreateShortcut($path)
+$link.TargetPath = $env:WOB_TARGET
+$link.Arguments = '"' + $env:WOB_MAIN + '"'
+$link.WorkingDirectory = $env:WOB_FOLDER
+$link.IconLocation = $env:WOB_ICON
+$link.Description = $env:WOB_NOTE
+$link.Save()
+Write-Output $path
+"""
+
+
 def make_shortcut():
-    """喺桌面整「巴別塔之窗」捷徑：用 .venv 嘅 pythonw（唔會彈黑色視窗）開 main.py。
-    TODO：新 .venv 冇 comtypes，之後改用 PowerShell 整捷徑（費事為咗一個捷徑多裝一個套件）"""
-    import comtypes.client
-    shell = comtypes.client.CreateObject("WScript.Shell", dynamic=True)
-    # 用 Windows 問桌面喺邊：有啲人個桌面俾 OneDrive 搬咗去第二度
-    desktop = Path(shell.SpecialFolders("Desktop"))
-    link = shell.CreateShortcut(str(desktop / SHORTCUT_NAME))
-    link.TargetPath = str(PROJECT / ".venv" / "Scripts" / "pythonw.exe")
-    link.Arguments = f'"{PROJECT / "main.py"}"'
-    # 一定要設：程式用相對路徑搵 settings.json、logs、glossaries、models
-    link.WorkingDirectory = str(PROJECT)
-    link.IconLocation = str(make_icon_file())
-    link.Description = "巴別塔之窗：螢幕翻譯窗"
-    link.Save()
-    return desktop / SHORTCUT_NAME
+    """喺桌面整「巴別塔之窗」捷徑：用 .venv 嘅 pythonw（唔會彈黑色視窗）開 main.py；回傳捷徑路徑。"""
+    env = {**os.environ, "WOB_NAME": SHORTCUT_NAME, "WOB_MAIN": str(PROJECT / "main.py"),
+           "WOB_TARGET": str(PROJECT / ".venv" / "Scripts" / "pythonw.exe"), "WOB_FOLDER": str(PROJECT),
+           "WOB_ICON": str(make_icon_file()), "WOB_NOTE": "巴別塔之窗：螢幕翻譯窗"}
+    done = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", SHORTCUT_SCRIPT], env=env,
+                          capture_output=True, encoding="utf-8", errors="replace", timeout=30,
+                          creationflags=subprocess.CREATE_NO_WINDOW)     # 唔要閃個黑色視窗
+    if done.returncode != 0:
+        raise OSError(done.stderr.strip()[:200] or "PowerShell 整唔到捷徑")
+    return Path(done.stdout.strip())
 
 
 if __name__ == "__main__":

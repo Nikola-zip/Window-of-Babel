@@ -126,7 +126,7 @@
  "改詞（以後有呢個詞嘅句都跟）": "Fix a word (applies to every sentence with it)",
  "整緊 Hy-MT2 1.8B 修好範本嘅版本……": "Setting up Hy-MT2 1.8B…",
  "新譯名（可以自己改）": "New name (editable)",
- "最準（作者日用嗰套）": "Most accurate (what the author uses)",
+ "最準，要嘅 VRAM 最多": "Most accurate, needs the most VRAM",
  "有呢部作品，但冇呢種語言嘅名": "Found the work, but no title in this language",
  "桌面捷徑": "Desktop shortcut",
  "模型": "Models",

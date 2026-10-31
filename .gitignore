@@ -20,6 +20,6 @@ glossaries/glossary.csv
 *.ico
 *.part
 
-# 字型：授權（SIL OFL 1.1）准分發，但要連授權檔一齊放；授權檔未齊之前先唔上傳
+# 字型：用家喺程式入面撳下載，或者自己加；項目唔分發
 fonts/
 sample/

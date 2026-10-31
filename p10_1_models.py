@@ -32,7 +32,7 @@ TIERS = {
     "中": {"讀字": "qwen3-vl:8b-instruct", "翻譯": FIXED_SMALL, "VRAM": 10,
           "說明": "讀字差唔多全啱；翻譯約九成同高檔一樣好，快一倍"},
     "高": {"讀字": "qwen3-vl:8b-instruct", "翻譯": "hf.co/unsloth/Hy-MT2-7B-GGUF:Q6_K", "VRAM": 15,
-          "說明": "最準（作者日用嗰套）"},
+          "說明": "最準，要嘅 VRAM 最多"},
 }
 CUSTOM = "自訂"
 

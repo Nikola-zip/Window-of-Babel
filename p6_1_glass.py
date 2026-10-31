@@ -111,7 +111,7 @@ class Glass(QWidget):
     def add_toolbar(self, extra=(), menu=None):
         """喺塊鏡右上角加細工具列（同字幕條嗰個一樣）：✥ 調整、extra 嘅掣、⚙ 出 menu。
 
-        遊戲入面熱鍵唔一定得（例如 LoL），有掣撳就唔受影響。extra 係 [(符號, 提示, 功能)]，
+        遊戲入面熱鍵唔一定得（有啲遊戲會封住），有掣撳就唔受影響。extra 係 [(符號, 提示, 功能)]，
         或者整好咗嘅掣（例如按住型嘅 HoldButton）。
         """
         self.move_button = IconButton("✥", tr("調整窗：搬位、改大細（再撳一下完成）"), lambda _: self.toggle_adjusting())

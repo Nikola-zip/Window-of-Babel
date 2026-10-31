@@ -19,7 +19,7 @@ MOD_NOREPEAT = 0x4000       # 撳住唔放唔好連續觸發，費事暫停／�
 MODIFIERS = {"ctrl": 0x2, "alt": 0x1, "shift": 0x4, "win": 0x8}
 ERROR_HOTKEY_ALREADY_REGISTERED = 1409
 DEFAULT_HOTKEYS = {"歷史": "Ctrl+Alt+H",
-                   # 清空上下文用 N（New，新場景）：R 喺譯幕作者部機俾其他程式霸咗（錯誤 1409）
+                   # 清空上下文用 N（New，新場景）：R 好容易俾其他程式霸咗（錯誤 1409）
                    "清空上下文": "Ctrl+Alt+N",
                    # G（Glass）調整塊鏡、T（Translate）讀字、A（Auto）自動模式、V（View）按住睇原文
                    "譯鏡調整": "Ctrl+Alt+G", "譯鏡讀字": "Ctrl+Alt+T", "譯鏡自動": "Ctrl+Alt+A",
@@ -166,7 +166,7 @@ def parse_or_none(text):
 def while_held(hotkeys, name, on_hold):
     """按住型熱鍵：RegisterHotKey 淨係撳落先有通知，冇「放手」通知，
     所以撳落之後定時問 GetAsyncKeyState 個字母鍵仲撳唔撳住，放咗就 on_hold(False)。
-    淨係問一個鍵嘅狀態、按住期間先問，唔係低階鍵盤鉤（Riot Vanguard 會當可疑）。
+    淨係問一個鍵嘅狀態、按住期間先問，唔係低階鍵盤鉤（遊戲嘅反作弊軟件會當可疑）。
     回傳撳落時叫嘅功能（交俾 bind）；計時器掛喺佢身上，唔好俾 Python 清走。"""
     timer = QTimer()
     timer.setInterval(HOLD_CHECK)

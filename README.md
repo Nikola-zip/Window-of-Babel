@@ -6,6 +6,10 @@ A movable window that translates whatever sits behind it. Place it over a manga 
 
 Everything runs on your own computer. There is no account, no API key and no cloud service.
 
+![A comic page changing from Japanese to English, Traditional Chinese and Korean](docs/demo.gif)
+
+*The sample page was drawn for this project. Each language is the app's real output on the High tier, shown as a loop of screenshots. To try it yourself, open [the original page](docs/demo-original.png).*
+
 ## Features
 
 - **Works anywhere on screen:** manga, games, apps, websites.
@@ -53,6 +57,11 @@ To add a desktop shortcut later, open Settings, go to General and press Create d
 The figures include about 1.7 GB of VRAM and a 0.3 GB download for text finding and clean-up. You can switch tier at any time under Settings, Models.
 
 **Tested on:** Windows 11 with an RTX 4090 (24 GB) and Ollama 0.40.6. All three tiers ran on that card; the VRAM figures for smaller cards are estimates, and AMD and Intel GPUs are untested.
+
+## Known limits
+
+- Sound effects and outlined text on busy backgrounds, such as a brick wall, may not be fully erased. You can turn off translating sound effects under Settings, Window.
+- The window hides itself from screenshots and screen recordings, so it never reads its own translation. To save a translated view, press 📷 on its toolbar.
 
 ## Default hotkeys
 

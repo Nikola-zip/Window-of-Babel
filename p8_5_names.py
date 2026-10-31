@@ -15,6 +15,7 @@ import subprocess
 import threading
 from pathlib import Path
 
+from i18n import tr
 from p4_6_launch import load_settings, save_setting
 
 NAMES_DIR = Path("glossaries/names")
@@ -245,7 +246,7 @@ def works_menu(on_change, parent=None):
     """「作品」子選單：揀邊部（單選）、開新作品、開名單。on_change(作品名) 喺轉咗之後叫。"""
     from PyQt6.QtGui import QAction, QActionGroup
     from PyQt6.QtWidgets import QInputDialog, QMenu
-    menu = QMenu("作品", parent)
+    menu = QMenu(tr("作品"), parent)
     group = QActionGroup(menu)
     group.setExclusive(True)
 
@@ -254,7 +255,7 @@ def works_menu(on_change, parent=None):
         on_change(memory().work)
 
     def new_work():
-        work, ok = QInputDialog.getText(None, "開新作品", "作品名（例如漫畫名、遊戲名）：")
+        work, ok = QInputDialog.getText(None, tr("開新作品"), tr("作品名（例如漫畫名、遊戲名）："))
         if ok and work.strip():
             choose(work.strip())
 
@@ -271,8 +272,8 @@ def works_menu(on_change, parent=None):
             group.addAction(item)
             menu.addAction(item)
         menu.addSeparator()
-        menu.addAction("開新作品…").triggered.connect(new_work)
-        menu.addAction("開名單（記事本）").triggered.connect(lambda: memory().open_file())
+        menu.addAction(tr("開新作品…")).triggered.connect(new_work)
+        menu.addAction(tr("開名單（記事本）")).triggered.connect(lambda: memory().open_file())
     menu.aboutToShow.connect(rebuild)
     rebuild()
     menu.group = group      # 要留住參照

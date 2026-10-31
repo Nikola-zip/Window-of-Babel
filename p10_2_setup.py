@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import QApplication, QButtonGroup, QHBoxLayout, QVBoxLayout
 from qfluentwidgets import (BodyLabel, CaptionLabel, IndeterminateProgressBar, PrimaryPushButton, ProgressBar,
                             PushButton, RadioButton, SimpleCardWidget, StrongBodyLabel)
 
+from i18n import tr
 from p2_1_translate import ollama_alive
 from p4_6_launch import OLLAMA_APP, ensure_ollama, load_settings, save_setting
 from p6_5_inpaint import FINDER_MODEL, LAMA_MODEL
@@ -99,7 +100,7 @@ def download_file(url, path, sha256, size, progress):
             progress(min(done / size, 1.0), f"{done / 2 ** 20:.0f}／{size / 2 ** 20:.0f} MB")
     if digest.hexdigest() != sha256:
         part.unlink()
-        raise OSError(f"{path.name} 校驗碼唔啱（檔案壞咗或者俾人改過），冇用")
+        raise OSError(tr("{v1} 校驗碼唔啱（檔案壞咗或者俾人改過），冇用", v1=path.name))
     part.replace(path)
 
 
@@ -137,7 +138,7 @@ class SetupDialog(ThemedWindow):
     """第一次開機設定。on_done(讀字模型, 翻譯模型)：轉好模型之後叫，主程式用嚟通知譯鏡、熱身。"""
 
     def __init__(self, on_done=None):
-        super().__init__("巴別塔之窗：第一次設定", 640, 600)
+        super().__init__(tr("巴別塔之窗：第一次設定"), 640, 600)
         self.on_done = on_done
         self.ollama = BodyLabel()
         self.ollama.setWordWrap(True)
@@ -163,7 +164,7 @@ class SetupDialog(ThemedWindow):
             self.tier_buttons[name] = button
             tier_column.addWidget(button)
             # 說明另外一行：Fluent 單選掣得一行高，寫埋入去第二行會俾切走
-            self.tier_notes[name] = CaptionLabel(TIERS[name]["說明"])
+            self.tier_notes[name] = CaptionLabel(tr(TIERS[name]["說明"]))
             self.tier_notes[name].setContentsMargins(30, 0, 0, 4)
             tier_column.addWidget(self.tier_notes[name])
         self.bar = ProgressBar()
@@ -173,9 +174,9 @@ class SetupDialog(ThemedWindow):
         self.busy_bar.hide()
         self.status = BodyLabel()
         self.status.setWordWrap(True)
-        self.go = PrimaryPushButton("下載並使用")
+        self.go = PrimaryPushButton(tr("下載並使用"))
         self.go.clicked.connect(self._start)
-        later = PushButton("遲啲先")
+        later = PushButton(tr("遲啲先"))
         later.clicked.connect(self.close)
         buttons = QHBoxLayout()
         buttons.addStretch()
@@ -183,7 +184,7 @@ class SetupDialog(ThemedWindow):
         buttons.addWidget(self.go)
         self.body.addLayout(top)
         self.body.addWidget(self.gpu)
-        self.body.addWidget(StrongBodyLabel("揀一檔（VRAM 已經計埋搵字、補圖模型）"))
+        self.body.addWidget(StrongBodyLabel(tr("揀一檔（VRAM 已經計埋搵字、補圖模型）")))
         self.body.addWidget(tier_box)
         self.body.addWidget(self.eraser)
         self.body.addStretch()
@@ -208,29 +209,29 @@ class SetupDialog(ThemedWindow):
         alive = ollama_alive()
         self.models = installed() if alive else None
         if alive:
-            self.ollama.setText("✅ Ollama 開咗（負責行讀字、翻譯模型）")
-            self.ollama_button.setText("重新檢查")
+            self.ollama.setText(tr("✅ Ollama 開咗（負責行讀字、翻譯模型）"))
+            self.ollama_button.setText(tr("重新檢查"))
         elif OLLAMA_APP.exists():
-            self.ollama.setText("⚠️ Ollama 裝咗但未開")
-            self.ollama_button.setText("開 Ollama")
+            self.ollama.setText(tr("⚠️ Ollama 裝咗但未開"))
+            self.ollama_button.setText(tr("開 Ollama"))
         else:
-            self.ollama.setText("⚠️ 未裝 Ollama：巴別塔之窗要靠佢喺你部電腦行模型（免費）。裝完再撳「重新檢查」")
-            self.ollama_button.setText("去官方網站下載")
+            self.ollama.setText(tr("⚠️ 未裝 Ollama：巴別塔之窗要靠佢喺你部電腦行模型（免費）。裝完再撳「重新檢查」"))
+            self.ollama_button.setText(tr("去官方網站下載"))
         name, vram = gpu_vram()
-        self.gpu.setText(f"顯示卡：{name}，{vram} GB VRAM" if name else "顯示卡：讀唔到幾多 VRAM，自己揀一檔")
+        self.gpu.setText(tr("顯示卡：{name}，{vram} GB VRAM", name=name, vram=vram) if name else tr("顯示卡：讀唔到幾多 VRAM，自己揀一檔"))
         best = recommend(vram)
         reading, translation = current()
         for tier_name, tier in TIERS.items():
             need = to_download(tier_name, self.models) if alive else None
             if need is None:
-                size = "（要先開 Ollama 先知要下載幾多）"
+                size = tr("（要先開 Ollama 先知要下載幾多）")
             elif need:
-                size = f"｜要下載約 {sum(DOWNLOAD_GB.get(m, 0) for m in need):.1f} GB"
+                size = tr("｜要下載約 {v1:.1f} GB", v1=sum(DOWNLOAD_GB.get(m, 0) for m in need))
             else:
-                size = "｜✅ 已經有齊"
-            tag = "（建議）" if tier_name == best else ""
-            using = "（而家用緊）" if same_model(reading, tier["讀字"]) and same_model(translation, tier["翻譯"]) else ""
-            self.tier_buttons[tier_name].setText(f"{tier_name}{tag}{using}：約 {tier['VRAM']} GB VRAM{size}")
+                size = tr("｜✅ 已經有齊")
+            tag = tr("（建議）") if tier_name == best else ""
+            using = tr("（而家用緊）") if same_model(reading, tier["讀字"]) and same_model(translation, tier["翻譯"]) else ""
+            self.tier_buttons[tier_name].setText(tr("{tier_name}{tag}{using}：約 {v4} GB VRAM{size}", tier_name=tr(tier_name), tag=tag, using=using, v4=tier['VRAM'], size=size))
         # 剔住而家用緊嘅檔；未揀過先剔建議嗰檔。試過下載完剔返建議嘅「高」，
         # 用家再撳一下掣就由「中」轉返「高」，以為下載咗冇用
         # 未完成過設定：「而家用緊」只係程式預設（高），細卡用家唔應該見到佢剔咗
@@ -243,11 +244,9 @@ class SetupDialog(ThemedWindow):
             self.eraser.setText("")
         elif RELEASE_BASE:
             mb = sum(entry[3] for entry in missing) / 2 ** 20
-            self.eraser.setText(f"仲要下載搵字、補圖模型（約 {mb:.0f} MB，撳下載會一齊落）：冇佢哋都照用得，"
-                                "但淨係用色塊蓋原文，唔會抹走原文再補返背景")
+            self.eraser.setText(tr("仲要下載搵字、補圖模型（約 {mb:.0f} MB，撳下載會一齊落）：冇佢哋都照用得，但淨係用色塊蓋原文，唔會抹走原文再補返背景", mb=mb))
         else:
-            self.eraser.setText("⚠️ 搵字、補圖模型檔唔見咗（models\\ctd、models\\lama），作者未放上網：照用得，"
-                                "但淨係用色塊蓋原文")
+            self.eraser.setText(tr("⚠️ 搵字、補圖模型檔唔見咗（models\\ctd、models\\lama），作者未放上網：照用得，但淨係用色塊蓋原文"))
         self._update_button()
 
     def _chosen(self):
@@ -259,20 +258,20 @@ class SetupDialog(ThemedWindow):
         ready = self.models is not None
         need = to_download(self._chosen(), self.models) if ready else []
         self.go.setEnabled(ready)
-        self.go.setText("下載並使用" if need or (RELEASE_BASE and eraser_missing()) else "使用呢檔")
+        self.go.setText(tr("下載並使用") if need or (RELEASE_BASE and eraser_missing()) else tr("使用呢檔"))
 
     def _ollama_action(self):
         if ollama_alive():
             self.refresh()
         elif OLLAMA_APP.exists():
-            self.status.setText("⏳ 開緊 Ollama……")
+            self.status.setText(tr("⏳ 開緊 Ollama……"))
             QApplication.processEvents()
             ensure_ollama(self.status.setText)
             self.refresh()
-        elif self.ollama_button.text() == "去官方網站下載":
+        elif self.ollama_button.text() == tr("去官方網站下載"):
             webbrowser.open(OLLAMA_DOWNLOAD)
             # 開咗網頁，用家裝緊；粒掣轉做檢查，唔係再撳只會再開多次網頁
-            self.ollama_button.setText("裝好咗，重新檢查")
+            self.ollama_button.setText(tr("裝好咗，重新檢查"))
         else:
             self.refresh()      # 仲未裝好的話，refresh 會將粒掣變返「去官方網站下載」
 
@@ -292,14 +291,14 @@ class SetupDialog(ThemedWindow):
         try:
             total = len(need) + len(files)
             for i, name in enumerate(need):
-                label = f"下載 {name}（{i + 1}/{total}）"
+                label = tr("下載 {name}（{v2}/{total}）", name=name, v2=i + 1, total=total)
                 pull(name, lambda part, text, label=label: self.signals.progress.emit(part, f"{label}：{text}"))
             for i, (path, file_name, sha256, size) in enumerate(files, start=len(need) + 1):
-                label = f"下載 {file_name}（{i}/{total}）"
+                label = tr("下載 {file_name}（{i}/{total}）", file_name=file_name, i=i, total=total)
                 download_file(RELEASE_BASE + file_name, path, sha256, size,
                               lambda part, text, label=label: self.signals.progress.emit(part, f"{label}：{text}"))
             if not is_installed(FIXED_SMALL, installed()) and FIXED_SMALL in (TIERS[tier]["讀字"], TIERS[tier]["翻譯"]):
-                self.signals.progress.emit(None, "整緊 Hy-MT2 1.8B 修好範本嘅版本……")
+                self.signals.progress.emit(None, tr("整緊 Hy-MT2 1.8B 修好範本嘅版本……"))
                 create_fixed_small()
             self.tier_done = tier
             self.signals.finished.emit("")
@@ -320,13 +319,13 @@ class SetupDialog(ThemedWindow):
         for button in self.tier_buttons.values():
             button.setEnabled(True)
         if error:
-            self.status.setText(f"⚠️ 出錯：{error}。檢查吓網絡同硬碟位，再撳一次「下載並使用」會由斷咗嘅位繼續")
+            self.status.setText(tr("⚠️ 出錯：{error}。檢查吓網絡同硬碟位，再撳一次「下載並使用」會由斷咗嘅位繼續", error=error))
             self.refresh()
             return
         tier = TIERS[self.tier_done]
         apply(tier["讀字"], tier["翻譯"])
         save_setting("已完成設定", True)
-        self.status.setText(f"✅ 用緊「{self.tier_done}」檔。可以閂呢個視窗，撳 🔍 讀字")
+        self.status.setText(tr("✅ 用緊「{v1}」檔。可以閂呢個視窗，撳 🔍 讀字", v1=self.tier_done))
         if self.on_done:
             self.on_done(tier["讀字"], tier["翻譯"])
         self.refresh()

@@ -9,6 +9,7 @@ from ctypes import wintypes
 
 from PyQt6.QtCore import QAbstractNativeEventFilter, QTimer
 
+from i18n import tr
 from ui_parts import load_settings, save_settings
 
 # use_last_error：登記失敗時攞到 Windows 嘅錯誤代碼，知道係咪俾人霸咗
@@ -37,10 +38,10 @@ def parse(text):
         elif part[0] == "f" and part[1:].isdigit() and 1 <= int(part[1:]) <= 24:
             key = 0x70 + int(part[1:]) - 1      # F1 係 0x70，順住落去
         else:
-            raise ValueError(f"睇唔明「{part}」")
+            raise ValueError(tr("睇唔明「{part}」", part=part))
     # 一定要有修飾鍵：淨係一個字母做全域熱鍵，你打字嗰陣就會亂觸發
     if key is None or not modifiers:
-        raise ValueError("要有最少一個 Ctrl／Alt／Shift／Win，再加一個字母、數字或者 F 鍵")
+        raise ValueError(tr("要有最少一個 Ctrl／Alt／Shift／Win，再加一個字母、數字或者 F 鍵"))
     return modifiers, key
 
 
@@ -83,8 +84,8 @@ class GlobalHotkeys(QAbstractNativeEventFilter):
         if not user32.RegisterHotKey(None, hotkey_id, modifiers | MOD_NOREPEAT, key):
             error = ctypes.get_last_error()
             if error == ERROR_HOTKEY_ALREADY_REGISTERED:
-                return "已經俾其他程式用咗，換一個"
-            return f"Windows 錯誤代碼 {error}"
+                return tr("已經俾其他程式用咗，換一個")
+            return tr("Windows 錯誤代碼 {error}", error=error)
         self.actions[hotkey_id] = action
         return None
 
@@ -116,7 +117,7 @@ class GlobalHotkeys(QAbstractNativeEventFilter):
             return str(error)
         for other, other_text in self.texts.items():
             if other != name and parse_or_none(other_text) == wanted:
-                return f"同「{other}」撞咗"
+                return tr("同「{other}」撞咗", other=other)
         old = self.texts.get(name)
         self._release(name)
         problem = self._bind_id(name, text)

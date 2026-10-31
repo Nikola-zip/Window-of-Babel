@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import QFormLayout, QHBoxLayout, QVBoxLayout
 from qfluentwidgets import (BodyLabel, CaptionLabel, LineEdit, PrimaryPushButton, PushButton, SimpleCardWidget,
                             StrongBodyLabel)
 
+from i18n import tr
 from p7_1_target import current
 from p8_5_names import memory
 from theme import ThemedWindow
@@ -30,7 +31,7 @@ class CorrectionDialog(ThemedWindow):
     """改一句譯文：上面睇原文同而家譯文，下面揀改詞定改成句。"""
 
     def __init__(self):
-        super().__init__("巴別塔之窗：改譯文", 600, 520)
+        super().__init__(tr("巴別塔之窗：改譯文"), 600, 520)
         self.original = LineEdit()
         self.original.setReadOnly(True)     # 唔俾改，但揀得字：揀咗就撳「用揀咗嘅字」
         self.translation = BodyLabel()
@@ -38,36 +39,36 @@ class CorrectionDialog(ThemedWindow):
         self.translation.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.work = CaptionLabel()
         top = QFormLayout()
-        top.addRow(BodyLabel("原文"), self.original)
-        top.addRow(BodyLabel("而家譯文"), self.translation)
+        top.addRow(BodyLabel(tr("原文")), self.original)
+        top.addRow(BodyLabel(tr("而家譯文")), self.translation)
         top.addRow("", self.work)
         self.body.addLayout(top)
 
         # ---------- 改詞 ----------
-        term_box, column = section("改詞（以後有呢個詞嘅句都跟）")
+        term_box, column = section(tr("改詞（以後有呢個詞嘅句都跟）"))
         self.term = LineEdit()
-        self.term.setPlaceholderText("原文入面嘅詞，例如 ヤワ")
-        pick = PushButton("用揀咗嘅字")
-        pick.setToolTip("喺上面「原文」揀咗一截字，撳呢度就搬落嚟")
+        self.term.setPlaceholderText(tr("原文入面嘅詞，例如 ヤワ"))
+        pick = PushButton(tr("用揀咗嘅字"))
+        pick.setToolTip(tr("喺上面「原文」揀咗一截字，撳呢度就搬落嚟"))
         pick.clicked.connect(lambda: self.term.setText(self.original.selectedText() or self.term.text()))
         row = QHBoxLayout()
         row.addWidget(self.term, 1)
         row.addWidget(pick)
         column.addLayout(row)
         self.term_fix = LineEdit()
-        self.term_fix.setPlaceholderText("正確譯法，例如 軟弱")
+        self.term_fix.setPlaceholderText(tr("正確譯法，例如 軟弱"))
         column.addWidget(self.term_fix)
-        save_term = PrimaryPushButton("記低呢個詞")
+        save_term = PrimaryPushButton(tr("記低呢個詞"))
         save_term.clicked.connect(self._save_term)
         column.addWidget(save_term, alignment=Qt.AlignmentFlag.AlignRight)
         self.body.addWidget(term_box)
 
         # ---------- 改成句 ----------
-        sentence_box, column = section("改成句（以後一模一樣嘅原文直接用呢個譯文）")
+        sentence_box, column = section(tr("改成句（以後一模一樣嘅原文直接用呢個譯文）"))
         self.sentence_fix = LineEdit()
-        self.sentence_fix.setPlaceholderText("正確譯文")
+        self.sentence_fix.setPlaceholderText(tr("正確譯文"))
         column.addWidget(self.sentence_fix)
-        save_sentence = PrimaryPushButton("記低成句")
+        save_sentence = PrimaryPushButton(tr("記低成句"))
         save_sentence.clicked.connect(self._save_sentence)
         column.addWidget(save_sentence, alignment=Qt.AlignmentFlag.AlignRight)
         self.body.addWidget(sentence_box)
@@ -82,7 +83,7 @@ class CorrectionDialog(ThemedWindow):
         self.entry = entry
         self.original.setText(entry["original"])
         self.translation.setText(entry.get("translation") or "")
-        self.work.setText(f"記入作品「{memory().work}」（譯做 {current().key}）；可以喺「作品」轉")
+        self.work.setText(tr("記入作品「{v1}」（譯做 {v2}）；可以喺「作品」轉", v1=memory().work, v2=current().key))
         self.term.clear()
         self.term_fix.clear()
         self.sentence_fix.setText(entry.get("translation") or "")
@@ -94,20 +95,20 @@ class CorrectionDialog(ThemedWindow):
     def _save_term(self):
         term, fix = self.term.text().strip(), self.term_fix.text().strip()
         if not term or not fix:
-            self.status.setText("⚠️ 要填齊原文詞同譯法")
+            self.status.setText(tr("⚠️ 要填齊原文詞同譯法"))
             return
         if term not in self.entry["original"]:
-            self.status.setText(f"⚠️ 原文入面搵唔到「{term}」")
+            self.status.setText(tr("⚠️ 原文入面搵唔到「{term}」", term=term))
             return
         memory().set_term(term, fix, current().key)
-        self.status.setText(f"✅ 記低咗：{term} → {fix}。之後嘅句會跟（窗要再讀一次嗰頁）")
+        self.status.setText(tr("✅ 記低咗：{term} → {fix}。之後嘅句會跟（窗要再讀一次嗰頁）", term=term, fix=fix))
         print(f"改詞：{term} → {fix}（作品 {memory().work}）")
 
     def _save_sentence(self):
         fix = self.sentence_fix.text().strip()
         if not fix:
-            self.status.setText("⚠️ 要填正確譯文")
+            self.status.setText(tr("⚠️ 要填正確譯文"))
             return
         memory().set_sentence(self.entry["original"], fix, current().key)
-        self.status.setText("✅ 記低咗：以後見到呢句原文就用呢個譯文")
+        self.status.setText(tr("✅ 記低咗：以後見到呢句原文就用呢個譯文"))
         print(f"改成句：{self.entry['original']} → {fix}（作品 {memory().work}）")

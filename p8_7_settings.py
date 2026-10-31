@@ -16,6 +16,7 @@ from qfluentwidgets import (BodyLabel, CaptionLabel, ComboBox, FluentIcon, Fluen
                             SingleDirectionScrollArea, SpinBox, SubtitleLabel, SwitchButton, TitleLabel)
 
 import theme
+from i18n import AUTO, LANGUAGES, chosen_language, set_language, tr
 from p4_6_launch import keep_days, load_settings, make_shortcut, save_setting
 from p7_1_target import TARGETS, current, set_current
 from p8_5_names import memory
@@ -33,6 +34,10 @@ HOTKEY_LABELS = {"歷史": "歷史面板", "清空上下文": "清空翻譯上�
 KEY_NAMES = {**{getattr(Qt.Key, f"Key_{c}"): c for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"},
              **{getattr(Qt.Key, f"Key_F{n}"): f"F{n}" for n in range(1, 25)}}
 GRID_WIDTH = 300        # 右邊揀模型嘅下拉闊度：模型名好長
+
+
+def hotkey_label(name):
+    return tr(HOTKEY_LABELS.get(name, name))
 
 
 class LensPreview(QWidget):
@@ -111,13 +116,13 @@ class NewWorkBox(MessageBoxBase):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.viewLayout.addWidget(SubtitleLabel("開新作品"))
+        self.viewLayout.addWidget(SubtitleLabel(tr("開新作品")))
         self.edit = LineEdit()
-        self.edit.setPlaceholderText("作品名（例如漫畫名、遊戲名）")
+        self.edit.setPlaceholderText(tr("作品名（例如漫畫名、遊戲名）"))
         self.edit.setMinimumWidth(320)
         self.viewLayout.addWidget(self.edit)
-        self.yesButton.setText("開")
-        self.cancelButton.setText("取消")
+        self.yesButton.setText(tr("開"))
+        self.cancelButton.setText(tr("取消"))
 
 
 class SettingsDialog(FluentWindow):
@@ -126,7 +131,7 @@ class SettingsDialog(FluentWindow):
     def __init__(self, lens, hooks=None):
         super().__init__()
         self.lens, self.hooks = lens, hooks or {}
-        self.setWindowTitle("巴別塔之窗：設定")
+        self.setWindowTitle(tr("巴別塔之窗：設定"))
         self.setWindowIcon(make_icon())
         # 個窗係置頂嘅，呢個視窗都要置頂，唔係會被遮住
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
@@ -143,11 +148,11 @@ class SettingsDialog(FluentWindow):
         self.pages = {"窗": self._lens_page(), "翻譯": self._translate_page(), "模型": self._models_page(),
                       "一般": self._general_page()}
         for name, icon in (("窗", FluentIcon.FIT_PAGE), ("翻譯", FluentIcon.LANGUAGE), ("模型", FluentIcon.ROBOT)):
-            self.addSubInterface(self.pages[name], icon, name)
-        self.addSubInterface(self.pages["一般"], FluentIcon.SETTING, "一般", NavigationItemPosition.BOTTOM)
+            self.addSubInterface(self.pages[name], icon, tr(name))
+        self.addSubInterface(self.pages["一般"], FluentIcon.SETTING, tr("一般"), NavigationItemPosition.BOTTOM)
         if "hotkeys" in self.hooks:
             self.pages["熱鍵"] = self._hotkey_page()
-            self.addSubInterface(self.pages["熱鍵"], FluentIcon.COMMAND_PROMPT, "熱鍵", NavigationItemPosition.BOTTOM)
+            self.addSubInterface(self.pages["熱鍵"], FluentIcon.COMMAND_PROMPT, tr("熱鍵"), NavigationItemPosition.BOTTOM)
         self.stackedWidget.currentChanged.connect(lambda _: self.refresh())     # 轉頁都讀返最新（可能喺選單改過）
 
     # ---------- 打開 ----------
@@ -175,7 +180,8 @@ class SettingsDialog(FluentWindow):
         self._fill_works()
         if self.stackedWidget.currentWidget() is self.pages["模型"]:
             self._fill_models()     # 要問 Ollama，淨係睇緊呢頁先問，唔好拖慢開其他頁
-        self._set(self.theme_choice, theme.current_choice())
+        self._pick(self.theme_choice, theme.current_choice())
+        self._pick(self.language, chosen_language())
         self._value(self.keep, keep_days())
         self._value(self.history, int(load_settings().get("歷史句數", 200)))
         if "hotkeys" in self.hooks:
@@ -185,6 +191,12 @@ class SettingsDialog(FluentWindow):
     def _set(combo, text):
         combo.blockSignals(True)
         combo.setCurrentText(text)
+        combo.blockSignals(False)
+
+    @staticmethod
+    def _pick(combo, data):
+        combo.blockSignals(True)
+        combo.setCurrentIndex(max(0, combo.findData(data)))
         combo.blockSignals(False)
 
     @staticmethod
@@ -201,32 +213,32 @@ class SettingsDialog(FluentWindow):
 
     # ---------- 窗 ----------
     def _lens_page(self):
-        page = Page("lens", "窗", "轉字型、字大細唔使重新讀字；擬聲字開關下次讀字生效。")
-        group = page.group("顯示")
+        page = Page("lens", tr("窗"), tr("轉字型、字大細唔使重新讀字；擬聲字開關下次讀字生效。"))
+        group = page.group(tr("顯示"))
         if "set_lens_visible" in self.hooks:
             self.lens_visible = SwitchButton()
             self.lens_visible.checkedChanged.connect(self.hooks["set_lens_visible"])
-            card(group, FluentIcon.FIT_PAGE, "顯示窗", "收埋之後喺工作列圖示或者用熱鍵開返", self.lens_visible)
+            card(group, FluentIcon.FIT_PAGE, tr("顯示窗"), tr("收埋之後喺工作列圖示或者用熱鍵開返"), self.lens_visible)
         self.lens_font = ComboBox()
         self.lens_font.addItems(available())
         self.lens_font.setMinimumWidth(220)
         self.lens_font.currentTextChanged.connect(self._lens_font_changed)
-        card(group, FluentIcon.FONT, "譯文字型", "譯文用邊隻字型", self.lens_font)
+        card(group, FluentIcon.FONT, tr("譯文字型"), tr("譯文用邊隻字型"), self.lens_font)
         if hasattr(self.lens, "set_text_percent"):
             self.text_percent = SpinBox()
             self.text_percent.setRange(60, 150)
             self.text_percent.setSingleStep(10)
             self.text_percent.setSuffix(" %")
             self.text_percent.valueChanged.connect(self._text_percent_changed)
-            card(group, FluentIcon.FONT_SIZE, "譯文字大細", "調大最多塞滿對白框；調細就成比例縮", self.text_percent)
-        group = page.group("讀字")
+            card(group, FluentIcon.FONT_SIZE, tr("譯文字大細"), tr("調大最多塞滿對白框；調細就成比例縮"), self.text_percent)
+        group = page.group(tr("讀字"))
         self.sound_effects = SwitchButton()
         self.sound_effects.checkedChanged.connect(self.lens.set_sound_effects)
-        card(group, FluentIcon.BRUSH, "擬聲字都譯", "閂咗就保留原本嘅擬聲字", self.sound_effects)
+        card(group, FluentIcon.BRUSH, tr("擬聲字都譯"), tr("閂咗就保留原本嘅擬聲字"), self.sound_effects)
         self.auto_mode = SwitchButton()
         self.auto_mode.checkedChanged.connect(self.lens.set_auto)
-        card(group, FluentIcon.SYNC, "自動模式", "畫面停定就自動讀字", self.auto_mode)
-        page.column.addWidget(SubtitleLabel("字型預覽"))
+        card(group, FluentIcon.SYNC, tr("自動模式"), tr("畫面停定就自動讀字"), self.auto_mode)
+        page.column.addWidget(SubtitleLabel(tr("字型預覽")))
         self.preview = LensPreview()
         page.column.addWidget(self.preview)
         page.finish()
@@ -244,31 +256,31 @@ class SettingsDialog(FluentWindow):
 
     # ---------- 翻譯 ----------
     def _translate_page(self):
-        page = Page("translate", "翻譯", "譯成邊種語言，同埋每部作品嘅人名、用語。")
-        group = page.group("語言")
+        page = Page("translate", tr("翻譯"), tr("譯成邊種語言，同埋每部作品嘅人名、用語。"))
+        group = page.group(tr("語言"))
         self.target = ComboBox()
         self.target.addItems(list(TARGETS))
         self.target.setMinimumWidth(180)
         self.target.currentTextChanged.connect(self._target_changed)
-        card(group, FluentIcon.LANGUAGE, "譯做", "譯文用邊種語言", self.target)
-        group = page.group("作品（人名記憶）")
+        card(group, FluentIcon.LANGUAGE, tr("譯做"), tr("譯文用邊種語言"), self.target)
+        group = page.group(tr("作品（人名記憶）"))
         self.works = ComboBox()
         self.works.setMinimumWidth(180)
         self.works.currentTextChanged.connect(self._work_changed)
-        new_work = PushButton("開新作品…")
+        new_work = PushButton(tr("開新作品…"))
         new_work.clicked.connect(self._new_work)
-        card(group, FluentIcon.BOOK_SHELF, "作品", "每部作品記住自己嘅人名譯法", self.works, new_work)
-        names = PushButton("開名單")
+        card(group, FluentIcon.BOOK_SHELF, tr("作品"), tr("每部作品記住自己嘅人名譯法"), self.works, new_work)
+        names = PushButton(tr("開名單"))
         names.clicked.connect(lambda: memory().open_file())
-        card(group, FluentIcon.PEOPLE, "人名名單", "用記事本改呢部作品記低嘅譯名", names)
-        lookup = PushButton("網上搵譯名…")
-        lookup.setToolTip("用作品名喺維基百科、Bangumi、AniList 等網站搵角色、用語嘅譯法，揀咗先寫入名單；撳先會上網")
+        card(group, FluentIcon.PEOPLE, tr("人名名單"), tr("用記事本改呢部作品記低嘅譯名"), names)
+        lookup = PushButton(tr("網上搵譯名…"))
+        lookup.setToolTip(tr("用作品名喺維基百科、Bangumi、AniList 等網站搵角色、用語嘅譯法，揀咗先寫入名單；撳先會上網"))
         lookup.clicked.connect(self._open_lookup)
-        card(group, FluentIcon.SEARCH, "網上搵譯名", "喺公開網站搵人哋點譯，你揀咗先寫入名單", lookup)
+        card(group, FluentIcon.SEARCH, tr("網上搵譯名"), tr("喺公開網站搵人哋點譯，你揀咗先寫入名單"), lookup)
         if "glossary" in self.hooks:
-            glossary = PushButton("開詞庫")
+            glossary = PushButton(tr("開詞庫"))
             glossary.clicked.connect(lambda: notepad(self.hooks["glossary"]))
-            card(group, FluentIcon.DOCUMENT, "詞庫", "固定譯法；改完要重開程式", glossary)
+            card(group, FluentIcon.DOCUMENT, tr("詞庫"), tr("固定譯法；改完要重開程式"), glossary)
         page.finish()
         return page
 
@@ -307,25 +319,25 @@ class SettingsDialog(FluentWindow):
 
     # ---------- 模型 ----------
     def _models_page(self):
-        page = Page("models", "模型", "揀啱你張顯示卡嘅檔；轉模型即刻生效，唔使重開，舊模型會即刻卸走。")
-        group = page.group("建議組合（VRAM 已經計埋搵字、補圖模型）")
+        page = Page("models", tr("模型"), tr("揀啱你張顯示卡嘅檔；轉模型即刻生效，唔使重開，舊模型會即刻卸走。"))
+        group = page.group(tr("建議組合（VRAM 已經計埋搵字、補圖模型）"))
         self.tier = ComboBox()
         for name, tier in TIERS.items():
-            self.tier.addItem(f"{name}（約 {tier['VRAM']} GB VRAM）", userData=name)
-        self.tier.addItem("自訂", userData=CUSTOM)
+            self.tier.addItem(tr("{name}（約 {v2} GB VRAM）", name=tr(name), v2=tier['VRAM']), userData=name)
+        self.tier.addItem(tr("自訂"), userData=CUSTOM)
         self.tier.setMinimumWidth(220)
         # activated 唔係 currentIndexChanged：程式自己擺返而家嗰檔唔好當用家揀咗，唔係開頁就轉模型
         self.tier.activated.connect(self._tier_picked)
-        self.tier_card = card(group, FluentIcon.SPEED_HIGH, "檔", "", self.tier)
-        group = page.group("自己揀")
+        self.tier_card = card(group, FluentIcon.SPEED_HIGH, tr("檔"), "", self.tier)
+        group = page.group(tr("自己揀"))
         self.reading_model = ComboBox()
         self.reading_model.setMinimumWidth(GRID_WIDTH)
         self.reading_model.activated.connect(self._model_picked)
-        card(group, FluentIcon.VIEW, "讀字模型", "淨列識睇圖嘅模型", self.reading_model)
+        card(group, FluentIcon.VIEW, tr("讀字模型"), tr("淨列識睇圖嘅模型"), self.reading_model)
         self.translation_model = ComboBox()
         self.translation_model.setMinimumWidth(GRID_WIDTH)
         self.translation_model.activated.connect(self._model_picked)
-        card(group, FluentIcon.LANGUAGE, "翻譯模型", "將讀到嘅字譯成你揀嘅語言", self.translation_model)
+        card(group, FluentIcon.LANGUAGE, tr("翻譯模型"), tr("將讀到嘅字譯成你揀嘅語言"), self.translation_model)
         self.model_status = BodyLabel()
         self.model_status.setWordWrap(True)
         page.column.addWidget(self.model_status)
@@ -333,11 +345,11 @@ class SettingsDialog(FluentWindow):
         row = QHBoxLayout(buttons)
         row.setContentsMargins(0, 0, 0, 0)
         if "open_setup" in self.hooks:
-            download = PrimaryPushButton(FluentIcon.DOWNLOAD, "下載模型…")
-            download.setToolTip("開第一次設定：睇張卡建議邊檔，撳一下就下載")
+            download = PrimaryPushButton(FluentIcon.DOWNLOAD, tr("下載模型…"))
+            download.setToolTip(tr("開第一次設定：睇張卡建議邊檔，撳一下就下載"))
             download.clicked.connect(self.hooks["open_setup"])
             row.addWidget(download)
-        reload = PushButton(FluentIcon.SYNC, "重新讀取模型清單")
+        reload = PushButton(FluentIcon.SYNC, tr("重新讀取模型清單"))
         reload.clicked.connect(self._fill_models)
         row.addWidget(reload)
         row.addStretch()
@@ -350,7 +362,7 @@ class SettingsDialog(FluentWindow):
         models = installed()
         reading, translation = current_models()
         if models is None:
-            self.model_status.setText("⚠️ Ollama 冇開，列唔到模型")
+            self.model_status.setText(tr("⚠️ Ollama 冇開，列唔到模型"))
         vision = [name for name, sees in models or [] if sees]
         others = [name for name, sees in models or [] if not sees]
         wanted_reading = [reading] + [tier["讀字"] for tier in TIERS.values()]
@@ -365,17 +377,17 @@ class SettingsDialog(FluentWindow):
                 if any(same_model(name, seen) for seen in listed):
                     continue
                 listed.append(name)
-                combo.addItem(name if is_installed(name, models) else f"{name}（未下載）", userData=name)
+                combo.addItem(name if is_installed(name, models) else tr("{name}（未下載）", name=name), userData=name)
             combo.setCurrentIndex(next(i for i, name in enumerate(listed) if same_model(name, chosen_now)))
         tier = tier_of(reading, translation)
         self.tier.setCurrentIndex(self.tier.findData(tier))
-        self.tier_card.setContent(TIERS[tier]["說明"] if tier in TIERS else
-                                  "自己揀嘅組合：未經測試，讀字模型唔跟格式就會讀唔到字")
+        self.tier_card.setContent(tr(TIERS[tier]["說明"]) if tier in TIERS else
+                                  tr("自己揀嘅組合：未經測試，讀字模型唔跟格式就會讀唔到字"))
 
     def _tier_picked(self, index):
         name = self.tier.itemData(index)
         if name == CUSTOM:
-            self.tier_card.setContent("喺下面揀讀字同翻譯模型")
+            self.tier_card.setContent(tr("喺下面揀讀字同翻譯模型"))
             return
         self._switch(TIERS[name]["讀字"], TIERS[name]["翻譯"])
 
@@ -387,68 +399,81 @@ class SettingsDialog(FluentWindow):
         missing = [name for name in (reading, translation) if not is_installed(name, models)]
         if missing:
             # 唔轉：轉咗去未下載嘅模型，下一次讀字、翻譯就會出錯
-            self.model_status.setText(f"⚠️ 未下載：{'、'.join(missing)}，暫時唔轉（撳「下載模型…」）")
+            self.model_status.setText(tr("⚠️ 未下載：{v1}，暫時唔轉（撳「下載模型…」）", v1='、'.join(missing)))
             self._fill_models()     # 揀返而家用緊嗰個，唔好令人以為轉咗
             return
         apply(reading, translation)
         if "models_changed" in self.hooks:
             self.hooks["models_changed"](reading, translation)
-        self.model_status.setText(f"✅ 轉咗：讀字 {reading}｜翻譯 {translation}")
+        self.model_status.setText(tr("✅ 轉咗：讀字 {reading}｜翻譯 {translation}", reading=reading, translation=translation))
         self._fill_models()
 
     # ---------- 一般 ----------
     def _general_page(self):
-        page = Page("general", "一般", "外觀、紀錄同資料夾。")
-        group = page.group("外觀")
+        page = Page("general", tr("一般"), tr("外觀、紀錄同資料夾。"))
+        group = page.group(tr("外觀"))
         self.theme_choice = ComboBox()
-        self.theme_choice.addItems(list(theme.CHOICES))
+        for choice in theme.CHOICES:
+            self.theme_choice.addItem(tr(choice), userData=choice)
         self.theme_choice.setMinimumWidth(140)
-        self.theme_choice.currentTextChanged.connect(theme.set_choice)
-        card(group, FluentIcon.PALETTE, "介面主題", "淺色係古卷色，深色係夜空色；跟系統就跟 Windows 轉", self.theme_choice)
-        group = page.group("紀錄")
+        # 顯示嘅字會跟介面語言變，所以用 userData 認，唔用 currentText
+        self.theme_choice.currentIndexChanged.connect(lambda _: theme.set_choice(self.theme_choice.currentData()))
+        card(group, FluentIcon.PALETTE, tr("介面主題"), tr("淺色係古卷色，深色係夜空色；跟系統就跟 Windows 轉"), self.theme_choice)
+        self.language = ComboBox()
+        self.language.addItem(tr("跟系統"), userData=AUTO)
+        for code, name in LANGUAGES.items():
+            self.language.addItem(name, userData=code)
+        self.language.setMinimumWidth(140)
+        self.language.currentIndexChanged.connect(self._language_changed)
+        self.language_card = card(group, FluentIcon.GLOBE, tr("介面語言"), tr("重開程式先全部轉晒"), self.language)
+        group = page.group(tr("紀錄"))
         self.history = SpinBox()
         self.history.setRange(10, 1000)
-        self.history.setSuffix(" 句")
+        self.history.setSuffix(tr(" 句"))
         self.history.valueChanged.connect(self._history_changed)
-        card(group, FluentIcon.HISTORY, "歷史面板記住", "面板顯示最近幾多句", self.history)
+        card(group, FluentIcon.HISTORY, tr("歷史面板記住"), tr("面板顯示最近幾多句"), self.history)
         self.keep = SpinBox()
         self.keep.setRange(1, 365)
-        self.keep.setSuffix(" 日")
+        self.keep.setSuffix(tr(" 日"))
         self.keep.valueChanged.connect(lambda days: save_setting("紀錄保留日數", days))
-        card(group, FluentIcon.DOCUMENT, "紀錄保留", "超過就喺下次開機清走", self.keep)
-        group = page.group("資料夾")
-        logs = PushButton("開紀錄資料夾")
+        card(group, FluentIcon.DOCUMENT, tr("紀錄保留"), tr("超過就喺下次開機清走"), self.keep)
+        group = page.group(tr("資料夾"))
+        logs = PushButton(tr("開紀錄資料夾"))
         logs.clicked.connect(lambda: open_folder(ROOT / "logs"))
-        shots = PushButton("開截圖資料夾")
+        shots = PushButton(tr("開截圖資料夾"))
         shots.clicked.connect(lambda: open_folder(ROOT / "screenshots"))
-        card(group, FluentIcon.FOLDER, "資料夾", "翻譯紀錄同 📷 存低嘅截圖", logs, shots)
-        shortcut = PushButton("建立桌面捷徑")
+        card(group, FluentIcon.FOLDER, tr("資料夾"), tr("翻譯紀錄同 📷 存低嘅截圖"), logs, shots)
+        shortcut = PushButton(tr("建立桌面捷徑"))
         shortcut.clicked.connect(self._make_shortcut)
-        self.shortcut_card = card(group, FluentIcon.PIN, "桌面捷徑", "撳一下就開，唔使開 terminal", shortcut)
+        self.shortcut_card = card(group, FluentIcon.PIN, tr("桌面捷徑"), tr("撳一下就開，唔使開 terminal"), shortcut)
         page.finish()
         return page
 
+    def _language_changed(self, _):
+        set_language(self.language.currentData())
+        self.language_card.setContent(tr("改咗：重開程式先生效"))
+
     def _make_shortcut(self):
         try:
-            self.shortcut_card.setContent(f"✅ 整好咗：{make_shortcut()}")
+            self.shortcut_card.setContent(tr("✅ 整好咗：{v1}", v1=make_shortcut()))
         except (OSError, subprocess.SubprocessError) as error:
-            self.shortcut_card.setContent(f"⚠️ 整唔到：{error}")
+            self.shortcut_card.setContent(tr("⚠️ 整唔到：{error}", error=error))
 
     # ---------- 熱鍵 ----------
     def _hotkey_page(self):
-        page = Page("hotkeys", "熱鍵", "撳「改」，再撳新嘅組合（要有 Ctrl／Alt／Shift／Win，加字母、數字或者 F 鍵）；Esc 取消。")
-        group = page.group("全域熱鍵")
+        page = Page("hotkeys", tr("熱鍵"), tr("撳「改」，再撳新嘅組合（要有 Ctrl／Alt／Shift／Win，加字母、數字或者 F 鍵）；Esc 取消。"))
+        group = page.group(tr("全域熱鍵"))
         self.hotkey_rows = {}
         for name in self.hooks["hotkeys"].texts:
             combo = BodyLabel()
-            change = PushButton("改")
+            change = PushButton(tr("改"))
             change.clicked.connect(lambda _=False, name=name: self._start_capture(name))
-            item = card(group, FluentIcon.COMMAND_PROMPT, HOTKEY_LABELS.get(name, name), "", combo, change)
+            item = card(group, FluentIcon.COMMAND_PROMPT, hotkey_label(name), "", combo, change)
             self.hotkey_rows[name] = (combo, change, item)
         self.hotkey_note = BodyLabel()
         self.hotkey_note.setWordWrap(True)
         page.column.addWidget(self.hotkey_note)
-        reset = PushButton(FluentIcon.UPDATE, "全部還原預設")
+        reset = PushButton(FluentIcon.UPDATE, tr("全部還原預設"))
         reset.clicked.connect(self._reset_hotkeys)
         page.column.addWidget(reset, alignment=Qt.AlignmentFlag.AlignLeft)
         page.finish()
@@ -458,8 +483,8 @@ class SettingsDialog(FluentWindow):
         keys = self.hooks["hotkeys"]
         for name, (combo, change, item) in self.hotkey_rows.items():
             capturing = name == self.capturing
-            combo.setText("撳新組合…" if capturing else keys.texts.get(name, ""))
-            change.setText("取消" if capturing else "改")
+            combo.setText(tr("撳新組合…") if capturing else keys.texts.get(name, ""))
+            change.setText(tr("取消") if capturing else tr("改"))
             problem = keys.problems.get(name)
             item.setContent(f"⚠️ {problem}" if problem else "")
 
@@ -485,7 +510,7 @@ class SettingsDialog(FluentWindow):
             super().keyPressEvent(event)
             return
         if event.key() == Qt.Key.Key_Escape:
-            self._stop_capture("取消咗，冇改。")
+            self._stop_capture(tr("取消咗，冇改。"))
             return
         key = KEY_NAMES.get(event.key())
         if key is None:
@@ -498,8 +523,8 @@ class SettingsDialog(FluentWindow):
         text = "+".join(parts + [key])
         name = self.capturing
         problem = self.hooks["hotkeys"].rebind(name, text)
-        self._stop_capture(f"「{HOTKEY_LABELS.get(name, name)}」改咗做 {text}。" if problem is None
-                           else f"用唔到 {text}：{problem}")
+        self._stop_capture(tr("「{v1}」改咗做 {text}。", v1=hotkey_label(name), text=text) if problem is None
+                           else tr("用唔到 {text}：{problem}", text=text, problem=problem))
 
     def hideEvent(self, event):
         if self.capturing is not None:      # 錄緊就閂視窗：記得交返熱鍵
@@ -517,10 +542,10 @@ class SettingsDialog(FluentWindow):
         for name in keys.texts:
             problem = keys.rebind(name, keys.texts[name])
             if problem:
-                problems.append(f"{HOTKEY_LABELS.get(name, name)}：{problem}")
+                problems.append(f"{hotkey_label(name)}：{problem}")
         keys.resume()
         self._show_hotkeys()
-        self.hotkey_note.setText("還原咗預設。" + ("；".join(problems) if problems else ""))
+        self.hotkey_note.setText(tr("還原咗預設。") + ("；".join(problems) if problems else ""))
 
     def _history_changed(self, size):
         save_setting("歷史句數", size)

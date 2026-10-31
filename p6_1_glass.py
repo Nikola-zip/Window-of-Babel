@@ -13,6 +13,7 @@ from PyQt6.QtCore import QPointF, QRect, QRectF, Qt
 from PyQt6.QtGui import QColor, QPainter, QPen
 from PyQt6.QtWidgets import QApplication, QWidget
 
+from i18n import tr
 from ui_parts import CHINESE_FONTS, CORNER_IDLE, IconButton, Toolbar, load_settings, make_font, save_settings
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -20,7 +21,7 @@ WDA_EXCLUDEFROMCAPTURE = 0x11   # Windows 10 2004 之後：截圖、錄影都當
 EDGE = 12           # 離邊幾多像素以內算「捉住邊」
 MIN_SIZE = (60, 40)
 GLASS_COLOR = QColor(79, 195, 247)      # 淺藍：同字幕條嘅黃色分得開
-HINT = "拖住搬位；拉邊或者角改大細\n雙擊或者右撳完成"
+HINT = tr("拖住搬位；拉邊或者角改大細\n雙擊或者右撳完成")
 
 
 def exclude_from_capture(widget):
@@ -43,7 +44,7 @@ class WheelGauge(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFixedSize(*self.SIZE)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("譯文字大細：撳 ▲▼ 或者轆滾輪")
+        self.setToolTip(tr("譯文字大細：撳 ▲▼ 或者轆滾輪"))
         self.on_step, self.text = on_step, text     # text()：而家顯示咩（例如「100%」）
         self.wheel_left = 0
         self.setWindowOpacity(CORNER_IDLE)
@@ -113,19 +114,19 @@ class Glass(QWidget):
         遊戲入面熱鍵唔一定得（例如 LoL），有掣撳就唔受影響。extra 係 [(符號, 提示, 功能)]，
         或者整好咗嘅掣（例如按住型嘅 HoldButton）。
         """
-        self.move_button = IconButton("✥", "調整窗：搬位、改大細（再撳一下完成）", lambda _: self.toggle_adjusting())
+        self.move_button = IconButton("✥", tr("調整窗：搬位、改大細（再撳一下完成）"), lambda _: self.toggle_adjusting())
         buttons = [self.move_button]
         buttons += [item if isinstance(item, IconButton) else
                     IconButton(item[0], item[1], lambda _, action=item[2]: action()) for item in extra]
         if menu is not None:
-            buttons.append(IconButton("⚙", "選單", menu.exec))
+            buttons.append(IconButton("⚙", tr("選單"), menu.exec))
         self.toolbar = Toolbar(buttons)
         wheel = getattr(self, "toolbar_wheel", None)
         if wheel is not None:
             # 塊玻璃穿透，喺漫畫上面轆滾輪係俾網頁捲頁；工具列唔穿透，喺度轆先收到
             self.toolbar.on_wheel = wheel
             for button in buttons:
-                button.setToolTip(button.toolTip() + "\n（喺工具列轆滾輪：調譯文大細）")
+                button.setToolTip(button.toolTip() + tr("\n（喺工具列轆滾輪：調譯文大細）"))
             self.gauge = WheelGauge(wheel, self.gauge_text)
         if self.isVisible():
             self._show_toolbar()

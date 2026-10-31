@@ -21,6 +21,7 @@ from PyQt6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction, QColor, QFontMetricsF, QImage, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QApplication
 
+from i18n import tr
 from p2_1_translate import ask
 from ui_parts import CHINESE_FONTS, make_font
 from p4_4_context import hk_characters
@@ -1410,7 +1411,7 @@ class Lens(Glass):
 
     def sound_effects_action(self, parent):
         """⚙ 選單用嘅剔格：剔咗就連擬聲字都譯，下次讀字生效。"""
-        item = QAction("擬聲字都譯", parent)
+        item = QAction(tr("擬聲字都譯"), parent)
         item.setCheckable(True)
         item.setChecked(self.sound_effects)
         item.toggled.connect(self.set_sound_effects)
@@ -1436,8 +1437,8 @@ class Lens(Glass):
         before = self.text_percent
         self.set_text_percent(before + step * 10)
         after = self.text_percent
-        edge = "（最大）" if after == TEXT_SIZE_RANGE[1] else "（最細）" if after == TEXT_SIZE_RANGE[0] else ""
-        self._flash(f"🔠 譯文字大細 {after}%{edge}", 1.5)
+        edge = tr("（最大）") if after == TEXT_SIZE_RANGE[1] else tr("（最細）") if after == TEXT_SIZE_RANGE[0] else ""
+        self._flash(tr("🔠 譯文字大細 {after}%{edge}", after=after, edge=edge), 1.5)
 
     def font_changed(self, name):
         """轉咗譯文字型：唔使重新讀字，排字快取跟住字型名，重畫就會用新字型重新排。"""
@@ -1447,7 +1448,7 @@ class Lens(Glass):
     def work_changed(self, work):
         """轉咗作品：舊作品嘅上下文同譯文唔要。"""
         self.worker.translator.reset()
-        self.clear(f"📚 作品：{work}")
+        self.clear(tr("📚 作品：{work}", work=work))
 
     def models_changed(self, reading, translation):
         """轉咗模型：快取係舊模型讀、舊模型譯嘅，唔清走嘅話捲返轉頭會見返舊結果，以為轉咗冇用。"""
@@ -1455,12 +1456,12 @@ class Lens(Glass):
         self.worker.translations = TranslationCache()
         self.worker.page_others = TranslationCache()
         self.worker.translator.reset()
-        self.clear(f"🧠 模型：{reading.split('/')[-1]}＋{translation.split('/')[-1]}")
+        self.clear(tr("🧠 模型：{v1}＋{v2}", v1=reading.split('/')[-1], v2=translation.split('/')[-1]))
 
     def target_changed(self, target):
         """轉咗「譯做」語言：舊譯文收起、上下文清走（舊語言嘅譯文會誤導新語言）。"""
         self.worker.translator.reset()
-        self.clear(f"🌐 譯做：{target.key}")
+        self.clear(tr("🌐 譯做：{v1}", v1=target.key))
 
     def set_auto(self, on):
         self.auto = bool(on)
@@ -1470,8 +1471,10 @@ class Lens(Glass):
             item.setChecked(self.auto)
             item.blockSignals(False)
         self.last_view, self.still = None, 0
-        self._set_status("🔁 自動模式：開（畫面停定就讀）" if self.auto else "自動模式：閂")
-        QTimer.singleShot(2000, lambda: self._set_status("") if "自動模式" in self.status else None)
+        text = tr("🔁 自動模式：開（畫面停定就讀）") if self.auto else tr("自動模式：閂")
+        self._set_status(text)
+        # 用同一句比較：狀態字跟介面語言變，唔可以搵「自動模式」呢幾個字
+        QTimer.singleShot(2000, lambda: self._set_status("") if self.status == text else None)
         if self.auto and self.isVisible():
             self.watcher.start(WATCH_EVERY)
 
@@ -1480,7 +1483,7 @@ class Lens(Glass):
 
     def auto_action(self, parent):
         """⚙ 選單用嘅剔格：自動模式開關。"""
-        item = QAction("自動模式", parent)
+        item = QAction(tr("自動模式"), parent)
         item.setCheckable(True)
         item.setChecked(self.auto)
         item.toggled.connect(self.set_auto)
@@ -1507,13 +1510,13 @@ class Lens(Glass):
     # ---------- 讀字同翻譯 ----------
     def read(self):
         if self.worker.busy:
-            self._set_status("⏳ 仲讀緊上一頁，等等……")
+            self._set_status(tr("⏳ 仲讀緊上一頁，等等……"))
             return
         if self.adjusting:
             self.set_adjusting(False)
         self.job += 1
         self.blocks = []
-        self._set_status("⏳ 讀緊字……")
+        self._set_status(tr("⏳ 讀緊字……"))
         QTimer.singleShot(50, self._capture)    # 等清走舊譯文先截（雖然玻璃唔會被截到）
 
     def _capture(self):
@@ -1538,7 +1541,7 @@ class Lens(Glass):
         if job != self.job:
             return
         self.blocks = blocks
-        self._set_status(f"⏳ 讀到 {len(blocks)} 段（{seconds:.1f} 秒），翻譯緊……" if blocks else "冇搵到字")
+        self._set_status(tr("⏳ 讀到 {v1} 段（{seconds:.1f} 秒），翻譯緊……", v1=len(blocks), seconds=seconds) if blocks else tr("冇搵到字"))
         self.watcher.start(WATCH_EVERY)
         print(f"\n讀到 {len(blocks)} 段，用咗 {seconds:.1f} 秒")
 
@@ -1556,12 +1559,12 @@ class Lens(Glass):
         if job == self.job and self.blocks and self.debug_dir:
             self._save_debug()
         if job == self.job and self.blocks:
-            self._set_status(f"✅ 譯好 {len(self.blocks)} 段（共 {seconds:.1f} 秒）")
+            self._set_status(tr("✅ 譯好 {v1} 段（共 {seconds:.1f} 秒）", v1=len(self.blocks), seconds=seconds))
             QTimer.singleShot(2500, lambda: self._set_status("") if self.status.startswith("✅") else None)
 
     def _failed(self, job, error):
         if job == self.job:
-            self._set_status(f"⚠️ 讀唔到：{error}")
+            self._set_status(tr("⚠️ 讀唔到：{error}", error=error))
             print(f"⚠️ 讀唔到：{error}")
 
     def _save_debug(self):
@@ -1612,10 +1615,10 @@ class Lens(Glass):
     def save_shot(self):
         """存「蓋咗字」嘅圖：讀字嗰刻截落嘅畫面，再畫返而家塊鏡上面嘅譯文；順手複製落剪貼簿。"""
         if self.image is None or not self.blocks:
-            self._flash("📷 未有譯文，冇嘢存（先撳 🔍 讀字）")
+            self._flash(tr("📷 未有譯文，冇嘢存（先撳 🔍 讀字）"))
             return
         if any(block["translation"] is None for block in self.blocks):
-            self._flash("📷 仲譯緊，等譯完先存")
+            self._flash(tr("📷 仲譯緊，等譯完先存"))
             return
         # 張截圖帶住螢幕縮放（150%），畫筆用返塊鏡嘅座標（同 paintEvent 一樣），存出嚟係實際像素
         shot = QImage(self.image).convertToFormat(QImage.Format.Format_RGB32)
@@ -1628,11 +1631,11 @@ class Lens(Glass):
         SHOT_DIR.mkdir(exist_ok=True)
         path = SHOT_DIR / f"window_of_babel_{time.strftime('%Y%m%d_%H%M%S')}.png"
         if not shot.save(str(path)):
-            self._flash("⚠️ 存唔到截圖")
+            self._flash(tr("⚠️ 存唔到截圖"))
             return
         QApplication.clipboard().setImage(shot)
         print(f"📷 存咗：{path}")
-        self._flash(f"📷 存咗 {path.name}（已複製）")
+        self._flash(tr("📷 存咗 {v1}（已複製）", v1=path.name))
 
     @staticmethod
     def open_shots():
@@ -1660,7 +1663,7 @@ class Lens(Glass):
         view = thumbnail(grab(self))
         if self.blocks and self.snapshot is not None and difference(view, self.snapshot) > CHANGED:
             # 自動模式唔出提示：捲一捲就閃一次字好煩，反正停定就會讀
-            self.clear("" if self.auto else "畫面變咗，收起譯文")
+            self.clear("" if self.auto else tr("畫面變咗，收起譯文"))
         if not self.auto:
             return
         if self.worker.busy or self.adjusting:

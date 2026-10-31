@@ -16,6 +16,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QApplication, QHBoxLayout
 from qfluentwidgets import FluentIcon, PushButton, TextBrowser, qconfig
 
+from i18n import tr
 from theme import ThemedWindow, accent_color, muted_color
 from ui_parts import CHINESE_FONTS, load_settings, make_font, save_settings
 
@@ -85,7 +86,7 @@ class HistoryPanel(ThemedWindow):
     """歷史面板：最近 50 句，捲得、揀字複製得。"""
 
     def __init__(self, log, on_fix=None):
-        super().__init__("巴別塔之窗：歷史", 640, 720)
+        super().__init__(tr("巴別塔之窗：歷史"), 640, 720)
         self.log = log
         self.on_fix = on_fix    # 有就每句加「改」連結（第 9 期：改譯文就記住），撳落去叫 on_fix(嗰句)
 
@@ -95,10 +96,10 @@ class HistoryPanel(ThemedWindow):
         # 「改」連結唔好當網址開，自己處理
         self.view.setOpenLinks(False)
         self.view.anchorClicked.connect(self._link)
-        copy_all = PushButton(FluentIcon.COPY, "複製全部")
+        copy_all = PushButton(FluentIcon.COPY, tr("複製全部"))
         copy_all.clicked.connect(self.copy_all)
-        open_file = PushButton(FluentIcon.DOCUMENT, "開紀錄檔")
-        open_file.setToolTip("用記事本打開今日成個紀錄檔；面板睇唔晒嘅舊句都喺度")
+        open_file = PushButton(FluentIcon.DOCUMENT, tr("開紀錄檔"))
+        open_file.setToolTip(tr("用記事本打開今日成個紀錄檔；面板睇唔晒嘅舊句都喺度"))
         open_file.clicked.connect(self.open_log)
         buttons = QHBoxLayout()
         buttons.addStretch()
@@ -122,7 +123,7 @@ class HistoryPanel(ThemedWindow):
         for i, entry in enumerate(self.shown):
             when = entry["time"][11:]   # 淨係要「時:分:秒」
             meta = f"{when}　{entry['lang'].upper()}　{entry['source']}"
-            translation = entry["translation"] or "（中文，唔譯）"
+            translation = entry["translation"] or tr("（中文，唔譯）")
             fix = (f'　<a href="fix:{i}" style="color:{accent_color()};">改</a>'
                    if self.on_fix and entry["translation"] else "")
             blocks.append(
@@ -143,7 +144,7 @@ class HistoryPanel(ThemedWindow):
     def copy_all(self):
         """一次過複製晒：一句一行「時間 [語言] 原文 → 譯文」，貼去筆記都好睇。"""
         lines = [
-            f"{e['time'][11:]} [{e['lang']}] {e['original']} → {e['translation'] or '（中文，唔譯）'}"
+            f"{e['time'][11:]} [{e['lang']}] {e['original']} → {e['translation'] or tr('（中文，唔譯）')}"
             for e in self.log.recent
         ]
         QApplication.clipboard().setText("\n".join(lines))

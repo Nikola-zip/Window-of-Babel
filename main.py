@@ -14,6 +14,7 @@ from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
+from i18n import tr
 from p2_1_translate import check_ollama, current_model, unload_model, warm_up
 from p2_3_glossary import GLOSSARY, load_glossary
 import theme
@@ -31,7 +32,7 @@ from p8_7_settings import SettingsDialog
 from p9_1_correct import CorrectionDialog
 from p10_2_setup import SetupDialog, needs_setup
 
-APP_NAME = "巴別塔之窗"
+APP_NAME = tr("巴別塔之窗")
 
 
 class Bridge(QObject):
@@ -48,12 +49,12 @@ def start_models(bridge):
         return
     try:
         print(f"Ollama 版本：{check_ollama()}")
-        bridge.status.emit("⏳ 載入翻譯模型……")
+        bridge.status.emit(tr("⏳ 載入翻譯模型……"))
         print(f"載入翻譯模型：{warm_up():.1f} 秒")
         bridge.status.emit("")
     except (RuntimeError, OSError) as error:
         print(f"翻譯模型載入唔到：{error}")
-        bridge.status.emit("⚠️ 翻譯模型載入唔到（Ollama 有冇開？）")
+        bridge.status.emit(tr("⚠️ 翻譯模型載入唔到（Ollama 有冇開？）"))
 
 
 def main():
@@ -63,7 +64,7 @@ def main():
     theme.setup_theme(qt)
     lock = single_instance()   # noqa: F841 —— 要留住，閂程式先放手
     if lock is None:
-        QMessageBox.information(None, APP_NAME, f"{APP_NAME}已經開咗：喺工作列右下角（可能喺「^」入面）搵佢個圖示。")
+        QMessageBox.information(None, APP_NAME, tr("{APP_NAME}已經開咗：喺工作列右下角（可能喺「^」入面）搵佢個圖示。", APP_NAME=APP_NAME))
         return
     days = keep_days()
     deleted = clean_old_logs(days)
@@ -83,19 +84,19 @@ def main():
     correction = CorrectionDialog()     # 歷史面板每句「改」
     panel = HistoryPanel(log, on_fix=correction.open)
     lens = Lens(HKTranslator(glossary, names=memory()),
-                on_translated=lambda lang, original, translation: log.add("窗", lang, original, translation))
+                on_translated=lambda lang, original, translation: log.add(tr("窗"), lang, original, translation))
 
     tray = QSystemTrayIcon(make_icon(), qt)
     tray.setToolTip(APP_NAME)
     tray_menu = QMenu()
     lens_menu = QMenu()
-    lens_toggle = QAction("收埋窗", tray_menu)
+    lens_toggle = QAction(tr("收埋窗"), tray_menu)
 
     def set_lens_visible(on):
         if not on:
             lens.clear()
         lens.setVisible(on)
-        lens_toggle.setText("收埋窗" if on else "顯示窗")
+        lens_toggle.setText(tr("收埋窗") if on else tr("顯示窗"))
         save_setting("譯鏡顯示", on)    # 下次開機照返
 
     def lens_read():
@@ -116,7 +117,7 @@ def main():
     def reset_context():
         # 換咗場景（另一個遊戲、另一部漫畫）：上一段嘅上下文會誤導翻譯
         lens.worker.translator.reset()
-        lens._flash("🧹 清咗翻譯上下文")
+        lens._flash(tr("🧹 清咗翻譯上下文"))
 
     lens_toggle.triggered.connect(lambda: set_lens_visible(not lens.isVisible()))
 
@@ -186,14 +187,14 @@ def main():
         return item
 
     # ---------- 工作列選單（右撳圖示）----------
-    add(tray_menu, f"讀字翻譯（{names['譯鏡讀字']}）", lens_read)
+    add(tray_menu, tr("讀字翻譯（{v1}）", v1=names['譯鏡讀字']), lens_read)
     tray_menu.addAction(lens_toggle)
     tray_menu.addMenu(targets)
     tray_menu.addMenu(works)
-    add(tray_menu, f"歷史（{names['歷史']}）", panel.toggle)
+    add(tray_menu, tr("歷史（{v1}）", v1=names['歷史']), panel.toggle)
     tray_menu.addSeparator()
-    add(tray_menu, "設定…", open_settings)
-    add(tray_menu, f"閂{APP_NAME}", qt.quit)
+    add(tray_menu, tr("設定…"), open_settings)
+    add(tray_menu, tr("閂{APP_NAME}", APP_NAME=APP_NAME), qt.quit)
     tray.setContextMenu(tray_menu)
     # 撳一下圖示：顯示／收埋個窗（右撳先出選單）
     tray.activated.connect(lambda reason: set_lens_visible(not lens.isVisible())
@@ -201,18 +202,18 @@ def main():
     tray.show()
 
     # ---------- 窗嘅 ⚙ 選單 ----------
-    add(lens_menu, "讀字翻譯", lens_read)
-    add(lens_menu, "收起譯文", lens.clear)
-    add(lens_menu, "存截圖", lens.save_shot)
+    add(lens_menu, tr("讀字翻譯"), lens_read)
+    add(lens_menu, tr("收起譯文"), lens.clear)
+    add(lens_menu, tr("存截圖"), lens.save_shot)
     lens_menu.addAction(lens.auto_action(lens_menu))
     lens_menu.addMenu(targets)      # 同工作列係同一個選單
     lens_menu.addMenu(works)
     lens_menu.addSeparator()
-    add(lens_menu, "設定…", open_settings)
-    add(lens_menu, "收埋窗", lambda: set_lens_visible(False))
-    lens.add_toolbar(extra=[("🔍", f"讀字翻譯（{names['譯鏡讀字']}）", lens_read),
-                            HoldButton("👁", f"按住睇原文（{names['譯鏡原文']}），放手變返譯文", lens.hold_original),
-                            ("📷", "存蓋咗字嘅截圖（順手複製）", lens.save_shot)], menu=lens_menu)
+    add(lens_menu, tr("設定…"), open_settings)
+    add(lens_menu, tr("收埋窗"), lambda: set_lens_visible(False))
+    lens.add_toolbar(extra=[("🔍", tr("讀字翻譯（{v1}）", v1=names['譯鏡讀字']), lens_read),
+                            HoldButton("👁", tr("按住睇原文（{v1}），放手變返譯文", v1=names['譯鏡原文']), lens.hold_original),
+                            ("📷", tr("存蓋咗字嘅截圖（順手複製）"), lens.save_shot)], menu=lens_menu)
     # 要留住參照，唔係 Python 回收咗，選單會無聲無息冇咗
     lens.menu, tray.menus = lens_menu, (tray_menu, targets, works)
     # 呢個程式就係個窗：第一次開預設顯示（譯幕預設收埋，因為字幕條先係主角）
@@ -237,7 +238,7 @@ def main():
 
     bridge.status.connect(show_status)
     bridge.need_setup.connect(setup.open)
-    tray.showMessage(APP_NAME, f"開咗：撳 {names['譯鏡讀字']} 或者 🔍 讀字翻譯；右撳工具列圖示有選單",
+    tray.showMessage(APP_NAME, tr("開咗：撳 {v1} 或者 🔍 讀字翻譯；右撳工具列圖示有選單", v1=names['譯鏡讀字']),
                      QSystemTrayIcon.MessageIcon.Information, 5000)
     # daemon：畫面一閂，背景線跟住收工
     threading.Thread(target=start_models, args=(bridge,), daemon=True).start()

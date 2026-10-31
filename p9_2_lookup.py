@@ -19,6 +19,7 @@ import sys
 import urllib.parse
 import urllib.request
 
+from i18n import tr
 from p2_1_translate import ask
 from p7_1_target import CONTEXT, current
 
@@ -355,34 +356,33 @@ def lookup_dialog():
         return list(dict.fromkeys(i for i in items if i))
 
     class LookupDialog(ThemedWindow):
-        COLUMNS = ["用", "原文", "而家譯名", "新譯名（可以自己改）", "各網站譯法"]
+        COLUMNS = [tr("用"), tr("原文"), tr("而家譯名"), tr("新譯名（可以自己改）"), tr("各網站譯法")]
         SITES = ["MangaDex", "維基", "AniList", "Bangumi", "貼上"]
 
         def __init__(self):
-            super().__init__("巴別塔之窗：網上搵譯名", 900, 800)
+            super().__init__(tr("巴別塔之窗：網上搵譯名"), 900, 800)
             self.query = LineEdit()
-            self.query.setPlaceholderText("作品名（日文原名、英文名、中文譯名都得，例如 シャングリラ・フロンティア）")
-            find = PrimaryPushButton(FluentIcon.SEARCH, "搵")
+            self.query.setPlaceholderText(tr("作品名（日文原名、英文名、中文譯名都得，例如 シャングリラ・フロンティア）"))
+            find = PrimaryPushButton(FluentIcon.SEARCH, tr("搵"))
             find.clicked.connect(self._search)
             self.query.returnPressed.connect(self._search)
             self.report = CaptionLabel()
             self.report.setWordWrap(True)
             self.report.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             self.hits = ComboBox()
-            read = PushButton("讀呢個條目")
+            read = PushButton(tr("讀呢個條目"))
             read.clicked.connect(self._read)
 
             # ---- 貼上文字：萌娘百科擋咗程式，但你喺瀏覽器睇得，複製成頁貼入嚟就得 ----
             self.paste = PlainTextEdit()
-            self.paste.setPlaceholderText("喺瀏覽器打開角色介紹頁（例如萌娘百科），Ctrl+A 全選、Ctrl+C 複製，貼喺度，"
-                                          "再撳「讀貼上嘅文字」。成頁貼都得，簡體會自動轉繁體。")
+            self.paste.setPlaceholderText(tr("喺瀏覽器打開角色介紹頁（例如萌娘百科），Ctrl+A 全選、Ctrl+C 複製，貼喺度，再撳「讀貼上嘅文字」。成頁貼都得，簡體會自動轉繁體。"))
             self.paste.setMaximumHeight(90)
-            moegirl = PushButton(FluentIcon.GLOBE, "喺瀏覽器開萌娘百科")
+            moegirl = PushButton(FluentIcon.GLOBE, tr("喺瀏覽器開萌娘百科"))
             moegirl.clicked.connect(lambda: self._browse(
                 "https://zh.moegirl.org.cn/index.php?variant=zh-hk&search=", name=self.original))
-            google = PushButton(FluentIcon.GLOBE, "Google 搵")
-            google.clicked.connect(lambda: self._browse("https://www.google.com/search?q=", " 角色"))
-            read_paste = PushButton("讀貼上嘅文字")
+            google = PushButton(FluentIcon.GLOBE, tr("Google 搵"))
+            google.clicked.connect(lambda: self._browse("https://www.google.com/search?q=", tr(" 角色")))
+            read_paste = PushButton(tr("讀貼上嘅文字"))
             read_paste.clicked.connect(self._read_paste)
             paste_buttons = QHBoxLayout()
             paste_buttons.addWidget(moegirl)
@@ -392,11 +392,11 @@ def lookup_dialog():
             paste_box = SimpleCardWidget()
             paste_layout = QVBoxLayout(paste_box)
             paste_layout.setContentsMargins(14, 10, 14, 12)
-            paste_layout.addWidget(StrongBodyLabel("貼上網頁文字（最可信：網頁寫明嘅譯名排第一）"))
+            paste_layout.addWidget(StrongBodyLabel(tr("貼上網頁文字（最可信：網頁寫明嘅譯名排第一）")))
             paste_layout.addWidget(self.paste)
             paste_layout.addLayout(paste_buttons)
 
-            self.status = BodyLabel("撳「搵」先會上網（只係送作品名）。")
+            self.status = BodyLabel(tr("撳「搵」先會上網（只係送作品名）。"))
             self.status.setWordWrap(True)
             self.table = TableWidget()
             self.table.setBorderVisible(True)
@@ -404,15 +404,15 @@ def lookup_dialog():
             self.table.setColumnCount(len(self.COLUMNS))
             self.table.setHorizontalHeaderLabels(self.COLUMNS)
             self.table.horizontalHeader().setStretchLastSection(True)
-            self.show_new = CheckBox("加埋名單未有嘅角色、用語")
+            self.show_new = CheckBox(tr("加埋名單未有嘅角色、用語"))
             self.show_new.toggled.connect(self._fill)
-            save = PrimaryPushButton("將剔咗嘅寫入名單")
+            save = PrimaryPushButton(tr("將剔咗嘅寫入名單"))
             save.clicked.connect(self._save)
             top = QHBoxLayout()
             top.addWidget(self.query, 1)
             top.addWidget(find)
             middle = QHBoxLayout()
-            middle.addWidget(BodyLabel("維基條目"))
+            middle.addWidget(BodyLabel(tr("維基條目")))
             middle.addWidget(self.hits, 1)
             middle.addWidget(read)
             bottom = QHBoxLayout()
@@ -447,7 +447,7 @@ def lookup_dialog():
 
         def _site(self, name, text):
             self.sites[name] = text
-            self.report.setText("\n".join(f"• {site}：{self.sites[site]}" for site in self.SITES if site in self.sites))
+            self.report.setText("\n".join(f"• {tr(site)}：{self.sites[site]}" for site in self.SITES if site in self.sites))
             QApplication.processEvents()
 
         def _search(self):
@@ -456,22 +456,22 @@ def lookup_dialog():
                 return
             target = current()
             if target.key == "日本語":
-                self.status.setText("譯做日本語唔使搵譯名。")
+                self.status.setText(tr("譯做日本語唔使搵譯名。"))
                 return
             # 新作品：清走上一次嘅網站結果同模型估（貼上嘅照留，可能係你先貼後搵）
             self.sources.update({"維基": {}, "Bangumi": {}})
             self.texts["維基"] = ""
             self.english, self.cache, self.sites = {}, {}, {}
             if self.sources["貼上"]:
-                self._site("貼上", f"{len(self.sources['貼上'])} 對（之前貼嘅）")
+                self._site("貼上", tr("{v1} 對（之前貼嘅）", v1=len(self.sources['貼上'])))
 
             # MangaDex：作品喺各語言嘅名，冷門作品用香港譯名先搵到維基
-            self._busy("⏳ MangaDex：搵作品喺各語言嘅名……")
+            self._busy(tr("⏳ MangaDex：搵作品喺各語言嘅名……"))
             try:
                 works = mangadex_titles(query)
             except (OSError, ValueError) as error:
                 works = []
-                self._site("MangaDex", f"上唔到（{error}）")
+                self._site("MangaDex", tr("上唔到（{error}）", error=error))
             titles = works[0] if works else {}
             language = WIKIS.get(target.key, ("zh", None))[0]
             local = unique([t for key in {"zh": ["zh-hk", "zh", "zh-tw"]}.get(language, [language])
@@ -482,19 +482,19 @@ def lookup_dialog():
             # 你打嘅有假名就係日文名；冇就用 MangaDex 嘅日文名，去走「～副題～」（太長搵唔到）
             self.original = query if KANA.search(query) else re.split(r"[～〜]", (japanese or [query])[0])[0].strip()
             if works:
-                self._site("MangaDex", "、".join(local) if local else "有呢部作品，但冇呢種語言嘅名")
+                self._site("MangaDex", "、".join(local) if local else tr("有呢部作品，但冇呢種語言嘅名"))
             elif "MangaDex" not in self.sites:
-                self._site("MangaDex", "搵唔到")
+                self._site("MangaDex", tr("搵唔到"))
 
             # 維基：用你打嘅名、MangaDex 嘅譯名同日文名都搵
-            self._busy("⏳ 維基百科：搵條目……")
+            self._busy(tr("⏳ 維基百科：搵條目……"))
             names = unique(local + [query] + japanese)
             hits = []
             for name in names[:3]:
                 try:
                     hits += [hit for hit in search(name, target) if hit not in hits]
                 except OSError as error:
-                    self._site("維基", f"上唔到（{error}）")
+                    self._site("維基", tr("上唔到（{error}）", error=error))
                     break
             # 條目名同作品名對得上嘅排先；全部對唔上就唔自動讀
             # （試過冷門作品搵到一個無關嘅人名條目排第一）
@@ -503,35 +503,35 @@ def lookup_dialog():
             for title, pageid in hits[:8]:
                 self.hits.addItem(title, userData=pageid)
             if not hits and "維基" not in self.sites:
-                self._site("維基", "搵唔到條目")
+                self._site("維基", tr("搵唔到條目"))
             elif hits and not same_title(hits[0][0], names):
-                self._site("維基", f"{len(hits)} 個條目，但冇一個個名似呢部作品，要自己揀再撳「讀呢個條目」")
+                self._site("維基", tr("{v1} 個條目，但冇一個個名似呢部作品，要自己揀再撳「讀呢個條目」", v1=len(hits)))
 
             # AniList：角色英文名
-            self._busy("⏳ AniList：搵角色英文名……")
+            self._busy(tr("⏳ AniList：搵角色英文名……"))
             for name in unique([query] + others):
                 native, self.english = anilist_characters(name)
                 if self.english:
-                    self._site("AniList", f"「{native}」{len(self.english)} 個角色英文名")
+                    self._site("AniList", tr("「{native}」{v2} 個角色英文名", native=native, v2=len(self.english)))
                     break
             else:
-                self._site("AniList", "搵唔到（淨搵漫畫）")
+                self._site("AniList", tr("搵唔到（淨搵漫畫）"))
 
             # Bangumi：角色中文名，淨係譯做繁中先有用
             if target.key == "繁體中文":
                 for name in unique([query] + japanese + local):
                     try:
                         title, found = bangumi_characters(
-                            name, progress=lambda i, n: self._busy(f"⏳ Bangumi：讀角色 {i + 1}/{n}……"))
+                            name, progress=lambda i, n: self._busy(tr("⏳ Bangumi：讀角色 {v1}/{n}……", v1=i + 1, n=n)))
                     except (OSError, ValueError) as error:
-                        self._site("Bangumi", f"上唔到（{error}）")
+                        self._site("Bangumi", tr("上唔到（{error}）", error=error))
                         break
                     if found:
                         self.sources["Bangumi"] = found
-                        self._site("Bangumi", f"「{title}」{len(found)} 個角色中文名")
+                        self._site("Bangumi", tr("「{title}」{v2} 個角色中文名", title=title, v2=len(found)))
                         break
                 else:
-                    self._site("Bangumi", "搵唔到有中文名嘅角色")
+                    self._site("Bangumi", tr("搵唔到有中文名嘅角色"))
 
             if hits and same_title(hits[0][0], names):
                 self._read()        # 唔啱就喺下拉揀過再撳「讀呢個條目」
@@ -542,26 +542,25 @@ def lookup_dialog():
             pageid = self.hits.currentData()
             if pageid is None:
                 return
-            self._busy("⏳ 讀緊維基條目……")
+            self._busy(tr("⏳ 讀緊維基條目……"))
             try:
                 text = article(pageid)
             except OSError as error:
-                self._site("維基", f"上唔到（{error}）")
+                self._site("維基", tr("上唔到（{error}）", error=error))
                 return
             self.texts["維基"] = text
             self.sources["維基"] = pairs_in(text, current())
-            self._site("維基", f"「{self.hits.currentText()}」抽到 {len(self.sources['維基'])} 對"
-                       f"（共 {self.hits.count()} 個條目，可以喺下面揀過）")
+            self._site("維基", tr("「{v1}」抽到 {v2} 對（共 {v3} 個條目，可以喺下面揀過）", v1=self.hits.currentText(), v2=len(self.sources['維基']), v3=self.hits.count()))
             self._compare()
 
         def _read_paste(self):
             text = self.paste.toPlainText().strip()
             if not text:
-                self.status.setText("⚠️ 未貼文字：喺瀏覽器 Ctrl+A、Ctrl+C，再喺上面個格 Ctrl+V。")
+                self.status.setText(tr("⚠️ 未貼文字：喺瀏覽器 Ctrl+A、Ctrl+C，再喺上面個格 Ctrl+V。"))
                 return
             self.texts["貼上"] = text
             self.sources["貼上"] = pairs_in(text, current())
-            self._site("貼上", f"{len(text)} 字，抽到 {len(self.sources['貼上'])} 對")
+            self._site("貼上", tr("{v1} 字，抽到 {v2} 對", v1=len(text), v2=len(self.sources['貼上'])))
             self._compare()
 
         def _browse(self, url, suffix="", name=None):
@@ -574,12 +573,11 @@ def lookup_dialog():
             self.known = memory()._known(target.key)
             sources = {label: found for label, found in self.sources.items() if found}
             self.found = compare(sources, self.known, [t for t in self.texts.values() if t], self.english, target,
-                                 progress=lambda i, n: self._busy(f"⏳ 對比緊 {i + 1}/{n}……"), cache=self.cache)
+                                 progress=lambda i, n: self._busy(tr("⏳ 對比緊 {v1}/{n}……", v1=i + 1, n=n)), cache=self.cache)
             in_list = sum(term in self.known for term in self.found)
-            self.show_new.setText(f"加埋名單未有嘅角色、用語（{len(self.found) - in_list} 個）")
+            self.show_new.setText(tr("加埋名單未有嘅角色、用語（{v1} 個）", v1=len(self.found) - in_list))
             self._fill()
-            self.status.setText(f"名單入面 {in_list} 個詞搵到譯法。網站寫明嘅先預先剔咗；"
-                                "「模型估」唔係網站寫明，要睇清楚。剔咗嘅先會寫入（當「手動改」）。")
+            self.status.setText(tr("名單入面 {in_list} 個詞搵到譯法。網站寫明嘅先預先剔咗；「模型估」唔係網站寫明，要睇清楚。剔咗嘅先會寫入（當「手動改」）。", in_list=in_list))
 
         def _fill(self):
             rows = []
@@ -588,7 +586,7 @@ def lookup_dialog():
                 if term not in self.known and not self.show_new.isChecked():
                     continue
                 names = unique([name for _, name in choices] + [now])
-                detail = "｜".join(f"{label} {name}" for label, name in choices)
+                detail = "｜".join(f"{tr(label)} {name}" for label, name in choices)
                 trusted = choices[0][0] not in (MODEL, MODEL_ENGLISH)
                 rows.append((term, now, names, detail, term in self.known and trusted and names[0] != now))
             self.table.setRowCount(0)           # 先清晒舊行：唔係舊嘅下拉選單會殘留疊喺上面
@@ -619,7 +617,7 @@ def lookup_dialog():
                 if name:
                     memory().set_term(term, name, target.key)
                     saved.append(f"{term} → {name}")
-            self.status.setText(f"✅ 寫入咗 {len(saved)} 個：" + "、".join(saved[:10]) + ("……" if len(saved) > 10 else ""))
+            self.status.setText(tr("✅ 寫入咗 {v1} 個：", v1=len(saved)) + "、".join(saved[:10]) + ("……" if len(saved) > 10 else ""))
             print("網上譯名寫入名單：", saved)
 
     return LookupDialog()

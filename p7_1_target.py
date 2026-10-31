@@ -9,6 +9,7 @@
 
 from dataclasses import dataclass, field
 
+from i18n import tr
 from p4_6_launch import load_settings, save_setting
 
 SETTING = "譯做"
@@ -113,7 +114,7 @@ def target_menu(on_change, parent=None):
     """「譯做」子選單（單選）：揀咗就 set_current，再叫 on_change(新語言)；工作列同 ⚙ 選單共用。"""
     from PyQt6.QtGui import QAction, QActionGroup
     from PyQt6.QtWidgets import QMenu
-    menu = QMenu("譯做", parent)
+    menu = QMenu(tr("譯做"), parent)
     group = QActionGroup(menu)
     group.setExclusive(True)
     for key in TARGETS:

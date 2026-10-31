@@ -9,7 +9,7 @@
 
 from dataclasses import dataclass, field
 
-from i18n import tr
+from i18n import current_language, tr
 from p4_6_launch import load_settings, save_setting
 
 SETTING = "譯做"
@@ -53,7 +53,9 @@ def current():
     """而家譯做邊種語言；第一次問先讀 settings.json，之後記住（轉語言用 set_current）。"""
     global _current
     if _current is None:
-        _current = TARGETS.get(load_settings().get(SETTING), TARGETS[DEFAULT])
+        # 未揀過：英文介面預設譯做 English，繁中、廣東話介面譯做繁中
+        fallback = "English" if current_language() == "en" else DEFAULT
+        _current = TARGETS.get(load_settings().get(SETTING), TARGETS[fallback])
     return _current
 
 

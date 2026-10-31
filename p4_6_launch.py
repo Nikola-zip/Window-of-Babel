@@ -26,7 +26,6 @@ OLLAMA_WAIT = 60        # 開 Ollama 之後最多等幾多秒佢應機
 # 換圖示就換檔名：Windows 會按檔名記住舊圖示，同名覆蓋嘅話桌面捷徑照出舊嗰個
 ICON = PROJECT / "window_of_babel.ico"
 ICON_SIZES = (16, 24, 32, 48, 256)
-SHORTCUT_NAME = "巴別塔之窗.lnk"
 
 # 狀態字開頭嘅符號就係嚴重程度：出錯 > 等緊 > 正常（工作列圖示用嚟揀顏色）
 ERROR, WAITING, NORMAL = 2, 1, 0
@@ -177,9 +176,10 @@ Write-Output $path
 
 def make_shortcut():
     """喺桌面整「巴別塔之窗」捷徑：用 .venv 嘅 pythonw（唔會彈黑色視窗）開 main.py；回傳捷徑路徑。"""
-    env = {**os.environ, "WOB_NAME": SHORTCUT_NAME, "WOB_MAIN": str(PROJECT / "main.py"),
+    from i18n import tr     # 用到先 import：捷徑名跟介面語言（英文用家見到 Window of Babel）
+    env = {**os.environ, "WOB_NAME": tr("巴別塔之窗") + ".lnk", "WOB_MAIN": str(PROJECT / "main.py"),
            "WOB_TARGET": str(PROJECT / ".venv" / "Scripts" / "pythonw.exe"), "WOB_FOLDER": str(PROJECT),
-           "WOB_ICON": str(make_icon_file()), "WOB_NOTE": "巴別塔之窗：螢幕翻譯窗"}
+           "WOB_ICON": str(make_icon_file()), "WOB_NOTE": tr("巴別塔之窗：螢幕翻譯窗")}
     done = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", SHORTCUT_SCRIPT], env=env,
                           capture_output=True, encoding="utf-8", errors="replace", timeout=30,
                           creationflags=subprocess.CREATE_NO_WINDOW)     # 唔要閃個黑色視窗

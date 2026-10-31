@@ -13,7 +13,7 @@ from qfluentwidgets import (BodyLabel, CaptionLabel, LineEdit, PrimaryPushButton
 
 from i18n import tr
 from p7_1_target import current
-from p8_5_names import memory
+from p8_5_names import memory, work_label
 from theme import ThemedWindow
 
 
@@ -83,7 +83,7 @@ class CorrectionDialog(ThemedWindow):
         self.entry = entry
         self.original.setText(entry["original"])
         self.translation.setText(entry.get("translation") or "")
-        self.work.setText(tr("記入作品「{v1}」（譯做 {v2}）；可以喺「作品」轉", v1=memory().work, v2=current().key))
+        self.work.setText(tr("記入作品「{v1}」（譯做 {v2}）；可以喺「作品」轉", v1=work_label(memory().work), v2=current().key))
         self.term.clear()
         self.term_fix.clear()
         self.sentence_fix.setText(entry.get("translation") or "")

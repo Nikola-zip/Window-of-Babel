@@ -242,6 +242,11 @@ def memory():
     return _memory
 
 
+def work_label(work):
+    """作品顯示嘅名：預設作品跟介面語言；檔案名、settings.json 照用「未分類」，舊資料唔使搬。"""
+    return tr(work) if work == DEFAULT_WORK else work
+
+
 def works_menu(on_change, parent=None):
     """「作品」子選單：揀邊部（單選）、開新作品、開名單。on_change(作品名) 喺轉咗之後叫。"""
     from PyQt6.QtGui import QAction, QActionGroup
@@ -265,7 +270,7 @@ def works_menu(on_change, parent=None):
         for item in group.actions():
             group.removeAction(item)
         for work in memory().works():
-            item = QAction(work, menu)
+            item = QAction(work_label(work), menu)
             item.setCheckable(True)
             item.setChecked(work == memory().work)
             item.triggered.connect(lambda _=False, work=work: choose(work))

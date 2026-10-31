@@ -19,14 +19,15 @@ import theme
 from i18n import AUTO, LANGUAGES, chosen_language, set_language, tr
 from p4_6_launch import keep_days, load_settings, make_shortcut, save_setting
 from p7_1_target import TARGETS, current, set_current
-from p8_5_names import memory
+from p8_5_names import memory, work_label
 from p8_6_fonts import available, chosen, chosen_name, has_bold, set_chosen, supports
 from p10_1_models import CUSTOM, TIERS, apply, installed, is_installed, same_model, tier_of
 from p10_1_models import current as current_models
 from ui_parts import CHINESE_FONTS, make_font, make_icon
 
 ROOT = Path(__file__).resolve().parent
-PREVIEW_TEXT = "這究竟是什麼？"
+PREVIEW_TEXT = {"繁體中文": "這究竟是什麼？", "English": "What on earth is this?", "日本語": "これは一体何だ？",
+                "한국어": "이게 대체 뭐야?"}
 # 熱鍵頁顯示嘅講法（settings.json「熱鍵」用嘅名 → 做咩）
 HOTKEY_LABELS = {"歷史": "歷史面板", "清空上下文": "清空翻譯上下文", "譯鏡調整": "調整窗", "譯鏡讀字": "讀字翻譯",
                  "譯鏡自動": "自動模式", "譯鏡原文": "按住睇原文"}
@@ -62,7 +63,16 @@ class LensPreview(QWidget):
         font.setPixelSize(int(px))
         p.setFont(font)
         p.setPen(QColor("black"))
-        columns = [PREVIEW_TEXT[:4], PREVIEW_TEXT[4:]]
+        target = current()
+        text = PREVIEW_TEXT.get(target.key, PREVIEW_TEXT["English"])
+        if not target.vertical:
+            # 打橫嘅語言：同個窗一樣寫橫排，字細啲先擺得落一句
+            font.setPixelSize(int(px * 0.62))
+            p.setFont(font)
+            p.drawText(bubble.adjusted(26, 0, -26, 0),
+                       Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, text)
+            return
+        columns = [text[:4], text[4:]]
         for c, column in enumerate(columns):      # 直排：由右邊一行起
             x = bubble.center().x() + px * 0.1 - c * px * 1.2
             top = bubble.center().y() - len(columns[0]) * px * 1.05 / 2
@@ -266,7 +276,7 @@ class SettingsDialog(FluentWindow):
         group = page.group(tr("作品（人名記憶）"))
         self.works = ComboBox()
         self.works.setMinimumWidth(180)
-        self.works.currentTextChanged.connect(self._work_changed)
+        self.works.currentIndexChanged.connect(lambda _: self._work_changed(self.works.currentData()))
         new_work = PushButton(tr("開新作品…"))
         new_work.clicked.connect(self._new_work)
         card(group, FluentIcon.BOOK_SHELF, tr("作品"), tr("每部作品記住自己嘅人名譯法"), self.works, new_work)
@@ -292,14 +302,16 @@ class SettingsDialog(FluentWindow):
 
     def _target_changed(self, key):
         target = set_current(key)
+        self.preview.update()
         if "target_changed" in self.hooks:
             self.hooks["target_changed"](target)
 
     def _fill_works(self):
         self.works.blockSignals(True)
         self.works.clear()
-        self.works.addItems(memory().works())
-        self.works.setCurrentText(memory().work)
+        for work in memory().works():
+            self.works.addItem(work_label(work), userData=work)
+        self.works.setCurrentIndex(max(0, self.works.findData(memory().work)))
         self.works.blockSignals(False)
 
     def _work_changed(self, work):

@@ -250,5 +250,7 @@
  "🔁 自動模式：開（畫面停定就讀）": "🔁 Auto mode: on (reads when the screen stops)",
  "🔠 譯文字大細 {after}%{edge}": "🔠 Text size {after}%{edge}",
  "🧠 模型：{v1}＋{v2}": "🧠 Models: {v1} + {v2}",
- "🧹 清咗翻譯上下文": "🧹 Translation context cleared"
+ "🧹 清咗翻譯上下文": "🧹 Translation context cleared",
+ "未分類": "Uncategorized",
+ "巴別塔之窗：螢幕翻譯窗": "Window of Babel: on-screen translation window"
 }
